@@ -32,6 +32,7 @@ def receiver():
     global velocity, angle
 
     rospy.init_node('key_receiver_node', anonymous=True)
+    print("key receiver node started")
 
     rospy.Subscriber("input_model_topic", input_model, get_commands)
     pub = rospy.Publisher('drive_pwm', input_drive, queue_size=10)
