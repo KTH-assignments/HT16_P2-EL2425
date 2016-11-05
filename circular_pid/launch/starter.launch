@@ -1,0 +1,11 @@
+<launch>
+
+	<node name="mocap_publisher_node" pkg="circular_pid" type="mocap_publisher.py" />
+
+	<node name="dist_finder_mocap_node" pkg="circular_pid" type="dist_finder_mocap.py" />
+
+	<node name="pid_controller_node" pkg="circular_pid" type="pid_controller.py" />
+
+	<node name="serial_transmitter_node" pkg="circular_pid" type="serial_transmitter.py" />
+
+</launch>

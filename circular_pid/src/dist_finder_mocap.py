@@ -7,10 +7,10 @@ Node to determine deviation from trajectory.
 import rospy
 import numpy as np
 from trajectory_planner import Path
-from f1tenth_msgs.msg import pid_input
-from f1tenth_msgs.msg import mocap_data
+from slip_control_communications.msg import input_pid
+from slip_control_communications.msg import mocap_data
 
-pub = rospy.Publisher('error', pid_input, queue_size=10)
+pub = rospy.Publisher('error_topic', input_pid, queue_size=10)
 path = Path()
 traj = path.get_points()
 vel = 20.0
@@ -41,15 +41,15 @@ def callback(state):
     # Distance to reference point
     vel_error = np.sqrt((ref_point[0] - state.x)**2 + (ref_point[1] - state.y)**2)
 
-    msg = pid_input()
+    msg = input_pid()
     msg.pid_error = angle_error
     msg.pid_vel = vel
     pub.publish(msg)
 
 
 if __name__ == '__main__':
+    rospy.init_node('dist_finder_mocap_node', anonymous=True)
     print("Mocap node started")
-    rospy.init_node('dist_finder_mocap', anonymous=True)
 
-    rospy.Subscriber("car_state", mocap_data, callback)
+    rospy.Subscriber("car_state_topic", mocap_data, callback)
     rospy.spin()
