@@ -25,6 +25,9 @@ def arduino_map(x, in_min, in_max, out_min, out_max):
 
 #-------------------------------------------------------------------------------
 # callback function on occurance of drive parameters(angle & velocity)
+#
+# INPUTS:
+# data: message of type input_model
 #-------------------------------------------------------------------------------
 def callback(data):
 
