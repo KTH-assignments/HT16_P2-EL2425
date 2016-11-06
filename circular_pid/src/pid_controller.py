@@ -23,6 +23,10 @@ pub = rospy.Publisher('drive_parameters_topic', input_model, queue_size=1)
 
 #-------------------------------------------------------------------------------
 # control
+#
+# INPUTS:
+#   data: a input_pid type message: velocity and angle error with respect to
+#         the reference the vehicle is to track
 #-------------------------------------------------------------------------------
 def control(data):
     global prev_angle_error

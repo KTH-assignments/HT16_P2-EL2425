@@ -12,9 +12,18 @@ from slip_control_communications.msg import mocap_data
 
 pub = rospy.Publisher('error_topic', input_pid, queue_size=10)
 path = Path()
+
+# The reference trajectory
 traj = path.get_points()
+
 vel = 20.0
 
+#-------------------------------------------------------------------------------
+# callback
+#
+# INPUT:
+#   state: measurements derived from mocap
+#-------------------------------------------------------------------------------
 def callback(state):
     min_dist = 100.0
     min_point = ref_point = None
@@ -39,14 +48,18 @@ def callback(state):
         angle_error += 2*np.pi
 
     # Distance to reference point
-    vel_error = np.sqrt((ref_point[0] - state.x)**2 + (ref_point[1] - state.y)**2)
+    #dist_error = np.sqrt((ref_point[0] - state.x)**2 + (ref_point[1] - state.y)**2)
 
+    # Package the error information into a input_pid type message and publish it
     msg = input_pid()
-    msg.pid_error = angle_error
     msg.pid_vel = vel
+    msg.pid_error = angle_error
     pub.publish(msg)
 
 
+#-------------------------------------------------------------------------------
+# main
+#-------------------------------------------------------------------------------
 if __name__ == '__main__':
     rospy.init_node('dist_finder_mocap_node', anonymous=True)
     print("Mocap node started")
