@@ -22,13 +22,16 @@ pub = rospy.Publisher('error_topic', input_pid, queue_size=10)
 #   OUTPUT: distance of scan at angle theta
 #-------------------------------------------------------------------------------
 def getRange(data, theta):
-    # Find the index of the arary that corresponds to angle theta.
+
+    # Find the index of the array that corresponds to angle theta.
     # Return the lidar scan value at that index
+    distance = data.ranges[theta]
+
     # Do some error checking for NaN and ubsurd values
+    if math.isnan(distance) or distance < data.range_min or distance > range_max:
+        distance = -50
 
-    # Your code goes here
-
-    return
+    return distance
 
 #-------------------------------------------------------------------------------
 # callback
