@@ -14,6 +14,13 @@ $ rosrun teleop key_receiver.py
 $ rosrun rosserial_python serial_node.py /dev/ttyACM0
 ```
 
+or
+
+```
+$ roscore
+$ roslaunch teleop launcher.launch
+```
+
 ---
 
 ## Running package `circular_pid`
@@ -22,7 +29,7 @@ Locally
 
 ```
 $ export ROS_IP=192.168.3.110
-$ roslaunch circular_pid starter.launch
+$ roslaunch circular_pid launcher.launch
 $ rosrun circular_pid kill_switch.py
 
 'Delete' to stop, 'Home' for normal operation
@@ -43,7 +50,7 @@ Locally
 
 ```
 $ export ROS_IP=192.168.3.110
-$ roslaunch centerline_pid starter.launch
+$ roslaunch centerline_pid launcher.launch
 $ rosrun centerline_pid kill_switch.py
 
 'Delete' to stop, 'Home' for normal operation
