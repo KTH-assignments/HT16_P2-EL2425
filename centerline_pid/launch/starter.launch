@@ -1,0 +1,9 @@
+<launch>
+
+	<node name="dist_finder_lidar_node" pkg="centerline_pid" type="dist_finder_lidar.py" />
+
+	<node name="pid_controller_node" pkg="centerline_pid" type="pid_controller.py" />
+
+	<node name="serial_transmitter_node" pkg="centerline_pid" type="serial_transmitter.py" />
+
+</launch>
