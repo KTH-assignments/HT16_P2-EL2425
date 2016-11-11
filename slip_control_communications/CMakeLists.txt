@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(slip_control_communications)
+
 find_package(catkin REQUIRED COMPONENTS
   message_generation
-  message_runtime
   std_msgs
   geometry_msgs
   sensor_msgs
@@ -25,6 +25,8 @@ generate_messages(
   )
 
 catkin_package(
+  INCLUDE_DIRS
+  LIBRARIES
   CATKIN_DEPENDS
     message_generation
     message_runtime
