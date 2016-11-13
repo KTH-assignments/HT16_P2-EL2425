@@ -72,7 +72,9 @@ find_package(catkin REQUIRED COMPONENTS
 ## Generate added messages and services with any dependencies listed here
 #  generate_messages(
     #DEPENDENCIES
-    #sensor_msgs#   std_msgs
+    #sensor_msgs
+    #slip_control_communications
+    #std_msgs
   #)
 
 ################################################
@@ -114,6 +116,7 @@ catkin_package(
    std_msgs
    geometry_msgs
    slip_control_communications
+   message_runtime
 #  DEPENDS system_lib
 )
 
