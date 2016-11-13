@@ -86,8 +86,9 @@ while key != ord('q'):
         forward = 0
         stdscr.addstr(5, 20, "Stop")
 
-msg = input_model()
-msg.velocity = forward
-msg.angle = left
-pub.publish(msg)
+    msg = input_model()
+    msg.velocity = forward
+    msg.angle = left
+    pub.publish(msg)
+
 curses.endwin()
