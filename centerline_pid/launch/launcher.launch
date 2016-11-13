@@ -1,7 +1,11 @@
 <launch>
 
-  <node name="hokuyo0" pkg="hokuyo_node" type="hokuyo_node">
+  <!--<node name="hokuyo0" pkg="hokuyo_node" type="hokuyo_node">
       <param name="port" type="string" value="/dev/ttyACM1" />
+  </node>-->
+
+  <node pkg="urg_node" type="urg_node" name="lidar" >
+          <param name="ip_address" value="192.168.3.11"/>
   </node>
 
 	<node name="dist_finder_lidar_node" pkg="centerline_pid" type="dist_finder_lidar.py" />
