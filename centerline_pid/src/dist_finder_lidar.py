@@ -6,6 +6,7 @@ Node to measure distance to obstacles.
 
 import rospy
 import math
+import numpy as np
 from sensor_msgs.msg import LaserScan
 from slip_control_communications.msg import input_pid
 
@@ -111,17 +112,21 @@ def callback(data):
     F = ranges_list(1)
     L = ranges_list(2)
 
-    #error = (R - L) / (R + L)
-
     # The overall angular error is: see
     # https://gits-15.sys.kth.se/alefil/HT16_P2_EL2425_resources/blob/master/various/Progress%20reports/Agendas/2016.11.16/main.pdf
-    # The scaling factor R+L is there to make the disparity invariant to the
-    # width of the lane
+    # The scaling factor R+L is there to make the range disparity invariant to
+    # the width of the lane
 
     CCp = 5
     tan_arg_1 = float(L-R) / ((2 * CCp) * (L+R))
     tan_arg_2 = float(F) / R
-    error =  -(np.arctan(tan_arg_1) + pi/2 - np.arctan(tan_arg_2))
+    error =  -(np.arctan(tan_arg_1) + np.pi/2 - np.arctan(tan_arg_2))
+
+    # Check for angular overflow
+    while error > np.pi:
+        error -= 2*np.pi
+    while angle_error < -np.pi:
+        error += 2*np.pi
 
 
     # Create the message that is to be sent to the pid controller,
