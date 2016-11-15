@@ -10,8 +10,8 @@ from slip_control_communications.msg import input_drive
 from slip_control_communications.msg import input_model
 from std_msgs.msg import Bool
 
-pub = rospy.Publisher('drive_pwm_topic', input_drive , queue_size=10)
-em_pub = rospy.Publisher('eStop_topic', Bool, queue_size=10)
+pub = rospy.Publisher('drive_pwm', input_drive , queue_size=10)
+em_pub = rospy.Publisher('eStop', Bool, queue_size=10)
 
 
 

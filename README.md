@@ -14,12 +14,6 @@ $ rosrun teleop key_receiver.py
 $ rosrun rosserial_python serial_node.py /dev/ttyACM0
 ```
 
-or
-
-```
-$ roscore
-$ roslaunch teleop launcher.launch
-```
 
 ---
 
@@ -28,7 +22,7 @@ $ roslaunch teleop launcher.launch
 Locally
 
 ```
-$ export ROS_IP=192.168.3.110
+$ export ROS_IP=192.168.3.110 (your IP over the picostation1 network)
 $ roslaunch circular_pid launcher.launch
 $ rosrun circular_pid kill_switch.py
 
@@ -49,7 +43,7 @@ $ rosrun rosserial_python serial_node.py /dev/ttyACM0
 Locally
 
 ```
-$ export ROS_IP=192.168.3.110
+$ export ROS_IP=192.168.3.110  (your IP over the picostation1 network)
 $ roslaunch centerline_pid launcher.launch
 $ rosrun centerline_pid kill_switch.py
 
