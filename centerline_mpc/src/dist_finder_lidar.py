@@ -8,19 +8,19 @@ import rospy
 import math
 import numpy as np
 from sensor_msgs.msg import LaserScan
-from slip_control_communications.msg import input_pid
+from slip_control_communications.msg import pose
 
 # The desired velocity of the car.
 # TODO make it an argument and include it in the launcher
 vel = 30
 
-pub = rospy.Publisher('error_topic', input_pid, queue_size=10)
+pub = rospy.Publisher('pose_topic', pose, queue_size=1)
 
 
 #-------------------------------------------------------------------------------
 #   Input:  data: Lidar scan data
-#           beam_index: The index of the angle at which the distance is requried
-
+#           beam_index: The index of the angle at which the distance is required
+#
 #   OUTPUT: distance of scan at angle theta whose index is beam_index
 #-------------------------------------------------------------------------------
 def getRange(data, beam_index):
@@ -38,6 +38,64 @@ def getRange(data, beam_index):
     return distance
 
 
+
+#-------------------------------------------------------------------------------
+#   Input:  data: Lidar scan data
+#           beam_index: The index of the angle at which the distance is required
+#           degree_offset: The offset from beam_index, expressed in *degrees*
+#
+#   OUTPUT: distance of scan at angle theta whose index is
+#           (beam_index + 4*degree_offset)
+#-------------------------------------------------------------------------------
+def getRange(data, beam_index, degree_offset):
+
+    return getRange(data, beam_index + 4*degree_offset)
+
+
+
+#-------------------------------------------------------------------------------
+#   Input:  data: Lidar scan data
+#           beam_index: The index of the angle at which the distance is required
+#           degree_offset: The offset from beam_index, expressed in *degrees*
+#
+#   OUTPUT: the difference between two scans, one at (beam_index - 4*degree_offset)
+#           and one at (beam_index + 4*degree_offset). Their difference is
+#           taken in an anti-clockwise fashion.
+#-------------------------------------------------------------------------------
+def getRangeDifference(data, beam_index, degree_offset):
+
+    first = getRange(data, beam_index, -degree_offset)
+    second = getRange(data, beam_index, degree_offset)
+
+    return first-second
+
+
+#-------------------------------------------------------------------------------
+#   Input:  data: Lidar scan data
+#
+#           beam_index: The index of the angle at which the distance is required
+#
+#           num_aux_scans_halfed: The number of auxiliary scans around
+#           beam_index required to take the average around it, halved. This
+#           means that if you want to take the average of 10 scans around
+#           beam_index, num_aux_scans_halfed should be 10/2 = 5
+#
+#   OUTPUT: average distance of scan at angle theta whose index is beam_index
+#-------------------------------------------------------------------------------
+def getAverageRange(data, beam_index, num_aux_scans_halfed):
+
+    dist = 0
+
+    for i in range(beam_index - num_aux_scans_halfed, beam_index + num_aux_scans_halfed + 1):
+        dist = dist + getRange(data, i)
+
+    dist = float (dist) / (2*num_aux_scans_halfed + 1)
+
+    return dist
+
+
+
+
 #-------------------------------------------------------------------------------
 # Input:
 #   data: Lidar scan data
@@ -46,51 +104,34 @@ def getRange(data, beam_index):
 #   a two-element list. The first is the distance of the object detected at the
 #   lidar's "three o' clock" and the second at its "nine o'clock"
 #-------------------------------------------------------------------------------
-def getLateralRanges(data):
+def getRanges(data):
 
     # The laser has a 270 degree detection angle, and an angular resolution of
     # 0.25 degrees. This means that in total there are 1080+1 beams.
     # What we need here is the distance at 45, 45+90=135 and 45+180=225 degrees
-    # from the start of the detection range. These are the lateral and straight
-    # on ranges at both lateral ends of the scan. The index of the beam at an
-    # angle t is given by t / 0.25 hence the first index will be 45*4=180, the
-    # second (45+90)*4 =540 and the third 225*4 = 900.
+    # from the start of the detection range. The index of the beam at an
+    # angle t is given by t / 0.25 hence the first index will be (45+0)*4=180,
+    # the second (45+90)*4 =540 and the third (45+180)*4 = 225*4 = 900.
     # Instead of taking only one measurement, take 2 on either side of the main
     # range beam and average them.
     # Consult https://www.hokuyo-aut.jp/02sensor/07scanner/ust_10lx_20lx.html
 
     # Range at 45 degrees (0)
-    range_right = getRange(data, 178) +
-        getRange(data, 179) +
-        getRange(data, 180) +
-        getRange(data, 181) +
-        getRange(data, 182)
-
-    range_right = range_right / 5
-
+    range_right = getAverageRange(data, 180, 2)
 
     # Range at 135 degrees (90)
-    range_face = getRange(data, 538) +
-        getRange(data, 539) +
-        getRange(data, 540) +
-        getRange(data, 541) +
-        getRange(data, 542)
-
-    range_face = range_face / 5
+    range_face = getAverageRange(data, 540, 2)
 
     # Range at 225 degrees (180)
-    range_left = getRange(data, 898) +
-        getRange(data, 899) +
-        getRange(data, 900) +
-        getRange(data, 901) +
-        getRange(data, 902)
+    range_left = getAverageRange(data, 900, 2)
 
-    range_left = range_left / 5
+    ranges_list = []
+    ranges_list.append(range_right)
+    ranges_list.append(range_face)
+    ranges_list.append(range_left)
 
-    distance = []
-    distance.append(range_right)
-    distance.append(range_face)
-    distance.append(range_left)
+    return ranges_list
+
 
 
 #-------------------------------------------------------------------------------
@@ -99,42 +140,41 @@ def getLateralRanges(data):
 def callback(data):
     #swing = math.radians(theta)
 
-    # The list where the lateral ranges is stored
-    ranges_list = getLateralRanges(data)
+    # The list where the front and lateral ranges are stored
+    ranges_list = getRanges(data)
 
-    # The disparity between the two ranges.
-    # This difference is expressed between the right and left lateral ranges.
-    # Regardless of the car's orientation, R - L < 0 means that the car is at
-    # the right half of the road and needs to turn left, which means that the
-    # signal going to the motor will be negative (the sign of the difference).
-    # The opposite case is analogous to this one.
     R = ranges_list(0)
     F = ranges_list(1)
     L = ranges_list(2)
 
-    # The overall angular error is: see
-    # https://gits-15.sys.kth.se/alefil/HT16_P2_EL2425_resources/blob/master/various/Progress%20reports/Agendas/2016.11.16/main.pdf
-    # The scaling factor R+L is there to make the range disparity invariant to
-    # the width of the lane
-
-    CCp = 5
-    tan_arg_1 = float(L-R) / ((2 * CCp) * (L+R))
-    tan_arg_2 = float(F) / R
-    error =  -(np.arctan(tan_arg_1) + np.pi/2 - np.arctan(tan_arg_2))
+    # Take a range scan difference between a scan at -8 degrees relative to the
+    # main beam at 0 degrees and one at +8 degrees. If the number returned is
+    # positive then the vehicle is facing the left lane boundary. If not,
+    # it's facing the right.
+    if getRangeDifference(data, 540, 8) > 0:
+        tan_arg_2 = float(L) / F
+    else:
+        tan_arg_2 = -float(R) / F
 
     # Check for angular overflow
-    while error > np.pi:
-        error -= 2*np.pi
-    while angle_error < -np.pi:
-        error += 2*np.pi
+    while tan_arg_2 > np.pi:
+        tan_arg_2 -= 2*np.pi
+    while tan_arg_2 < -np.pi:
+        tan_arg_2  += 2*np.pi
 
+    # The vehicle's orientation with respect to the lane
+    psi = np.arctan(tan_arg_2)
 
-    # Create the message that is to be sent to the pid controller,
-    # pack all relevant information (error and default velocity)
-    # and publish it
-    msg = input_pid()
-    msg.pid_error = error
-    msg.pid_vel = vel
+    # The vehicle's displacement from the centerline
+    y = -0.5 * (L-R)cos(psi)
+
+    # Create the message that is to be sent to the mpc controller,
+    # pack all relevant information and publish it
+    msg = pose()
+    msg.x = 0
+    msg.y = y
+    msg.psi = psi
+    msg.v = vel # NOT ACTUALLY
     pub.publish(msg)
 
 

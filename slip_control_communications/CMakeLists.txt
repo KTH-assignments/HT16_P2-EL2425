@@ -15,6 +15,7 @@ add_message_files(
   input_pid.msg
   lidar_data.msg
   mocap_data.msg
+  pose.msg
   )
 
 generate_messages(
