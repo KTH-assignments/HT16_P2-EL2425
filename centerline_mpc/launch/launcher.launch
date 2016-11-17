@@ -1,17 +1,17 @@
 <launch>
 
-  <node name="static_tf0" pkg="tf" type="static_transform_publisher" args="1 0 0 0 0 0  /world /map 100"/>
-
-  <node name="static_tf1" pkg="tf" type="static_transform_publisher" args="1 0 0 0 0 0  /map /base_footprint 100"/>
-
-  <node pkg="tf" type="static_transform_publisher" name="base_frame_to_laser" args="0.0 0.0 0.0 0.0 0.0 0.0 /base_footprint /laser 1" />
+  <!--<node name="hokuyo0" pkg="hokuyo_node" type="hokuyo_node">
+      <param name="port" type="string" value="/dev/ttyACM1" />
+  </node>-->
 
   <node pkg="urg_node" type="urg_node" name="lidar" >
-          <param name="ip_address" value="192.168.2.11"/>
+          <param name="ip_address" value="192.168.3.11"/>
   </node>
 
-  <node name="serial_node" pkg="rosserial_python" type="serial_node.py">
-          <param name="port" value="/dev/ttyACM0"/>
-  </node>
+	<node name="dist_finder_lidar_node" pkg="centerline_pid" type="dist_finder_lidar.py" />
+
+	<node name="pid_controller_node" pkg="centerline_pid" type="pid_controller.py" />
+
+	<node name="serial_transmitter_node" pkg="centerline_pid" type="serial_transmitter.py" />
 
 </launch>
