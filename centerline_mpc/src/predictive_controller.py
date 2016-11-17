@@ -21,18 +21,18 @@ lf = 0.17
 # Length of rear axle to center of gravity
 lr = 0.16
 
-global timestamp_last_message = None
+timestamp_last_message = None
 
 #-------------------------------------------------------------------------------
 # Extracts the A, B matrices of a reduced order kinematic model whose states
-# are y and psi, and whose only input is delta
+# are y and phi, and whose only input is delta
 #-------------------------------------------------------------------------------
-def get_model_matrices(psi, v, ts):
+def get_model_matrices(phi, v, ts):
 
     matrices = []
 
     A_11 = 1
-    A_12 = ts * v * cos(psi)
+    A_12 = ts * v * cos(phi)
     A_21 = 0
     A_22 = 1
     A = np.matrix([A_11, A_12],[A_21, A_22]])
@@ -66,7 +66,8 @@ def solve_optimization_problem(num_states, num_inputs, horizon, A, B, Q, R, s_0)
 
     states = []
     for t in range(horizon):
-        cost = quad_form(s[:,t+1], Q) + quad_form(u[:,t], R)
+        cost = quad_form(s[:,t], Q) + quad_form(u[:,t], R)
+
         constr = [s[:,t+1] == A*s[:,t] + B*u[:,t],
                 norm(u[:,t], 'inf') <= np.pi / 3,
                 norm(u[:,t], 'inf') => -np.pi / 3 ]
@@ -96,20 +97,23 @@ def solve_optimization_problem(num_states, num_inputs, horizon, A, B, Q, R, s_0)
 #-------------------------------------------------------------------------------
 def callback(data):
 
+    global timestamp_last_message
+
     # Update the (not necessarily constant) sampling time
     if timestamp_last_message == None:
-            ts = 0
+        ts = 0
     else:
-            ts = data.header.stamp.secs - timestamp_last_message
+       ts = data.header.stamp - timestamp_last_message
 
+    timestamp_last_message = data.header.stamp
 
     # Unpack message
     y = data.y
-    psi = data.psi
+    phi = data.psi
     v = data.v
 
-    # The model's matrices are time-variant. Grab them.
-    matrices = get_model_matrices(psi, v, ts)
+    # The model's matrices are time-variant. Calculate them.
+    matrices = get_model_matrices(phi, v, ts)
 
     A = matrices(0)
     B = matrices(1)
@@ -122,11 +126,11 @@ def callback(data):
     R = 0.1
 
     # Initial conditions
-    x_0 = np.matrix([[psi], [v]])
+    s_0 = np.matrix([[y], [phi]])
 
 
     # Solve the optimization problem
-    optimal_input = solve_optimization_problem(2, 1, N, A, B, Q, R, x_0)
+    optimal_input = solve_optimization_problem(2, 1, N, A, B, Q, R, s_0)
 
 
     # Pack the message to be sent to the serial_transmitter node
