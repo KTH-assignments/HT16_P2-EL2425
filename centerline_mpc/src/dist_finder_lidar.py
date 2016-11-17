@@ -170,11 +170,15 @@ def callback(data):
 
     # Create the message that is to be sent to the mpc controller,
     # pack all relevant information and publish it
+    h = pose.Header()
+    h.stamp = rospy.Time.now()
+
     msg = pose()
+    msg.header = h
     msg.x = 0
     msg.y = y
     msg.psi = psi
-    msg.v = vel # NOT ACTUALLY
+    msg.v = vel
     pub.publish(msg)
 
 

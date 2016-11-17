@@ -100,7 +100,7 @@ def callback(data):
     if timestamp_last_message == None:
             ts = 0
     else:
-            ts = data.header.stamp - timestamp_last_message
+            ts = data.header.stamp.secs - timestamp_last_message
 
 
     # Unpack message
