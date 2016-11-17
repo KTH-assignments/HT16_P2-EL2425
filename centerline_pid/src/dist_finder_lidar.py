@@ -20,7 +20,7 @@ pub = rospy.Publisher('error_topic', input_pid, queue_size=10)
 #-------------------------------------------------------------------------------
 #   Input:  data: Lidar scan data
 #           beam_index: The index of the angle at which the distance is required
-
+#
 #   OUTPUT: distance of scan at angle theta whose index is beam_index
 #-------------------------------------------------------------------------------
 def getRange(data, beam_index):
@@ -38,6 +38,64 @@ def getRange(data, beam_index):
     return distance
 
 
+
+#-------------------------------------------------------------------------------
+#   Input:  data: Lidar scan data
+#           beam_index: The index of the angle at which the distance is required
+#           degree_offset: The offset from beam_index, expressed in *degrees*
+#
+#   OUTPUT: distance of scan at angle theta whose index is
+#           (beam_index + 4*degree_offset)
+#-------------------------------------------------------------------------------
+def getRange(data, beam_index, degree_offset):
+
+    return getRange(data, beam_index + 4*degree_offset)
+
+
+
+#-------------------------------------------------------------------------------
+#   Input:  data: Lidar scan data
+#           beam_index: The index of the angle at which the distance is required
+#           degree_offset: The offset from beam_index, expressed in *degrees*
+#
+#   OUTPUT: the difference between two scans, one at (beam_index - 4*degree_offset)
+#           and one at (beam_index + 4*degree_offset). Their difference is
+#           taken in an anti-clockwise fashion.
+#-------------------------------------------------------------------------------
+def getRangeDifference(data, beam_index, degree_offset):
+
+    first = getRange(data, beam_index, -degree_offset)
+    second = getRange(data, beam_index, degree_offset)
+
+    return first-second
+
+
+#-------------------------------------------------------------------------------
+#   Input:  data: Lidar scan data
+#
+#           beam_index: The index of the angle at which the distance is required
+#
+#           num_aux_scans_halfed: The number of auxiliary scans around
+#           beam_index required to take the average around it, halved. This
+#           means that if you want to take the average of 10 scans around
+#           beam_index, num_aux_scans_halfed should be 10/2 = 5
+#
+#   OUTPUT: average distance of scan at angle theta whose index is beam_index
+#-------------------------------------------------------------------------------
+def getAverageRange(data, beam_index, num_aux_scans_halfed):
+
+    dist = 0
+
+    for i in range(beam_index - num_aux_scans_halfed, beam_index + num_aux_scans_halfed + 1):
+        dist = dist + getRange(data, i)
+
+    dist = float (dist) / (2*num_aux_scans_halfed + 1)
+
+    return dist
+
+
+
+
 #-------------------------------------------------------------------------------
 # Input:
 #   data: Lidar scan data
@@ -46,81 +104,33 @@ def getRange(data, beam_index):
 #   a two-element list. The first is the distance of the object detected at the
 #   lidar's "three o' clock" and the second at its "nine o'clock"
 #-------------------------------------------------------------------------------
-def getLateralRanges(data):
+def getRanges(data):
 
     # The laser has a 270 degree detection angle, and an angular resolution of
     # 0.25 degrees. This means that in total there are 1080+1 beams.
     # What we need here is the distance at 45, 45+90=135 and 45+180=225 degrees
-    # from the start of the detection range. These are the lateral and straight
-    # on ranges at both lateral ends of the scan. The index of the beam at an
-    # angle t is given by t / 0.25 hence the first index will be 45*4=180, the
-    # second (45+90)*4 =540 and the third 225*4 = 900.
+    # from the start of the detection range. The index of the beam at an
+    # angle t is given by t / 0.25 hence the first index will be (45+0)*4=180,
+    # the second (45+90)*4 =540 and the third (45+180)*4 = 225*4 = 900.
     # Instead of taking only one measurement, take 2 on either side of the main
     # range beam and average them.
     # Consult https://www.hokuyo-aut.jp/02sensor/07scanner/ust_10lx_20lx.html
 
     # Range at 45 degrees (0)
-    range_right = getRange(data, 178) +
-        getRange(data, 179) +
-        getRange(data, 180) +
-        getRange(data, 181) +
-        getRange(data, 182)
-
-    range_right = range_right / 5
-
+    range_right = getAverageRange(data, 180, 2)
 
     # Range at 135 degrees (90)
-    range_face = getRange(data, 538) +
-        getRange(data, 539) +
-        getRange(data, 540) +
-        getRange(data, 541) +
-        getRange(data, 542)
-
-    range_face = range_face / 5
+    range_face = getAverageRange(data, 540, 2)
 
     # Range at 225 degrees (180)
-    range_left = getRange(data, 898) +
-        getRange(data, 899) +
-        getRange(data, 900) +
-        getRange(data, 901) +
-        getRange(data, 902)
+    range_left = getAverageRange(data, 900, 2)
 
-    range_left = range_left / 5
+    ranges_list = []
+    ranges_list.append(range_right)
+    ranges_list.append(range_face)
+    ranges_list.append(range_left)
 
-    distance = []
-    distance.append(range_right)
-    distance.append(range_face)
-    distance.append(range_left)
-
-
-#-------------------------------------------------------------------------------
-# Input:
-#   data: Lidar scan data
-#   beam_index: the beam index corresponding to the angle at which the range
-#               will be found
-#   length: The number of beam_indices whose corresponding range will be
-#           taken
-#
-# Output: Depending on if the length is odd or even, a number of beams are taken
-#         around beam_index in an anti-clockwise fashion. The difference
-#         between consecutive scans is taken and store in list `distances`.
-#         The sum of these differences determines the vehicle's orientation
-#         with respect to the lane that we want it to track.
-#         If the sign of the returned number is positive, that means that the
-#         vehicle is facing the right boundary of the lane. If negative, the
-#         left one.
-#-------------------------------------------------------------------------------
-def getRangeSequenceSign(data, beam_index, length):
-
-    if length % 2 == 1:
-        length = length + 1
-
-    distances = []
-
-    for i in range(-length/2, length/2 + 1)
-        distances.append(getRange(data, beam_index + i + 1) - getRange(data, beam_index + i))
-
-    return sum(distance)
+    return ranges_list
 
 
 
@@ -131,7 +141,7 @@ def callback(data):
     #swing = math.radians(theta)
 
     # The list where the lateral ranges is stored
-    ranges_list = getLateralRanges(data)
+    ranges_list = getRanges(data)
 
     # The disparity between the two ranges.
     # This difference is expressed between the right and left lateral ranges.
@@ -144,31 +154,34 @@ def callback(data):
     L = ranges_list(2)
 
 
-    # Fire auxiliary scans around the front facing one.
-    # This will facilitate the discovery of the vehicle's orientation with
-    # respect to the lane. Take rays across +-{1,2,3,4,5} degrees around F
-    # __anti-clockwise__.
-    # If the sequence is decreasing then the vehicle is facing the left wall.
-    # If the sequence is increasing then the vehicle is facing the right wall.
-
-
     # The overall angular error is: see
-    # https://gits-15.sys.kth.se/alefil/HT16_P2_EL2425_resources/blob/master/Progress%20reports/2016.11.16/main.pdf
+    # https://gits-15.sys.kth.se/alefil/HT16_P2_EL2425_resources/blob/master/Progress%20reports/2016.11.23/main.pdf
     # The scaling factor R+L is there to make the range disparity invariant to
     # the width of the lane
 
     CCp = 5
     tan_arg_1 = float(L-R) / ((2 * CCp) * (L+R))
 
-    # Take a range scan sequence starting from 1 degree to the right of the main
-    # beam at 0 degrees with respect to the longitudinal axis of the vehicle,
-    # and ending at one degree to the left of it. If the number returned is
-    # positive then the vehicle is facing the right lane boundary. If not,
-    # it's facing the left.
-    if getRangeSequenceSign(data, 540, 8) > 0:
-        tan_arg_2 = -float(R) / F
-    else:
+    # Check for angular overflow
+    while tan_arg_1 > np.pi:
+        tan_arg_1 -= 2*np.pi
+    while tan_arg_1 < -np.pi:
+        tan_arg_1  += 2*np.pi
+
+    # Take a range scan difference between a scan at -8 degrees relative to the main
+    # beam at 0 degrees and one at +8 degrees. If the number returned is
+    # positive then the vehicle is facing the left lane boundary. If not,
+    # it's facing the right.
+    if getRangeDifference(data, 540, 8) > 0:
         tan_arg_2 = float(L) / F
+    else:
+        tan_arg_2 = -float(R) / F
+
+    # Check for angular overflow
+    while tan_arg_2 > np.pi:
+        tan_arg_2 -= 2*np.pi
+    while tan_arg_2 < -np.pi:
+        tan_arg_2  += 2*np.pi
 
     # If the steering angle to the left requires a negative sign and the
     # steering angle to the right requires a positive sign, then the vehicle
@@ -176,7 +189,7 @@ def callback(data):
     # facing the left wall. If the vehicle lies at the leftmost half of the
     # lane, then it should turn right, and if it lies at the rightmost half,
     # it should turn left.
-    error =  -np.arctan(tan_arg_1) + np.arctan(tan_arg_2)
+    error = -np.arctan(tan_arg_1) + np.arctan(tan_arg_2)
 
     # Check for angular overflow
     while error > np.pi:
