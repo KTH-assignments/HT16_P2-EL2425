@@ -32,7 +32,7 @@ def getRange(data, beam_index):
     # Do some error checking for NaN and ubsurd values
     if math.isnan(distance) or distance < range_min:
         distance = 0
-    if distance > range_max:
+    if math.isinf(distance) or distance > range_max:
         distance = 50
 
     return distance
