@@ -12,7 +12,7 @@ from slip_control_communications.msg import pose
 
 # The desired velocity of the car.
 # TODO make it an argument and include it in the launcher
-vel = 30
+vel = 20
 
 pub = rospy.Publisher('pose_topic', pose, queue_size=1)
 

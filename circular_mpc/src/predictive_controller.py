@@ -31,15 +31,27 @@ def get_model_matrices(phi, v, ts):
 
     matrices = []
 
+    # A
     A_11 = 1
-    A_12 = ts * v * cos(phi)
+    A_12 = 0
+    A_12 = -ts * v * sin(phi)
+
     A_21 = 0
     A_22 = 1
-    A = np.matrix([A_11, A_12],[A_21, A_22]])
+    A_23 = ts * v * cos(phi)
 
-    B_11 = ts * float(l_r) * v / (l_r + l_f) * cos(phi)
-    B_12 = ts * float(v) / (l_r + l_f)
-    B = np.matrix([[B_11], [B_12]])
+    A_31 = 0
+    A_32 = 0
+    A_33 = 1
+
+    A = np.matrix([A_11, A_12, A_13], [A_21, A_22, A_23], [A_31, A_32, A_33]])
+
+    # B
+    B_11 = -ts * float(l_r) * v / (l_r + l_f) * sin(phi)
+    B_12 = ts * float(l_r) * v / (l_r + l_f) * cos(phi)
+    B_13 = ts * float(v) / (l_r + l_f)
+
+    B = np.matrix([[B_11], [B_12], [B_13]])
 
     matrices.append(A)
     matrices.append(B)
@@ -61,6 +73,7 @@ def terminal_cost_penalty(A, B, Q ,R)
 # Returns the optimum input.
 #-------------------------------------------------------------------------------
 def solve_optimization_problem(num_states, num_inputs, horizon, A, B, Q, R, s_0)
+
     s = Variable(num_states, horizon + 1)
     u = Variable(num_inputs)
 
@@ -108,6 +121,7 @@ def callback(data):
     timestamp_last_message = data.header.stamp
 
     # Unpack message
+    x = data.x
     y = data.y
     phi = data.psi
     v = data.v
@@ -122,15 +136,15 @@ def callback(data):
     N = 50
 
     # Penalty matrices
-    Q = np.matrix([[0.001, 0], [0, 1]])
+    Q = np.matrix([[0.001, 0, 0], [0, 0.001, 0], [0, 0, 1]])
     R = 0.1
 
     # Initial conditions
-    s_0 = np.matrix([[y], [phi]])
+    s_0 = np.matrix([[x], [y], [phi]])
 
 
     # Solve the optimization problem
-    optimal_input = solve_optimization_problem(2, 1, N, A, B, Q, R, s_0)
+    optimal_input = solve_optimization_problem(3, 1, N, A, B, Q, R, s_0)
 
 
     # Pack the message to be sent to the serial_transmitter node

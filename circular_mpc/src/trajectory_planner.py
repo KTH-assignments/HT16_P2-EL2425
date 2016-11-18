@@ -20,8 +20,8 @@ class Path():
         for i in range(0,360):
             x = xc + r*np.cos(np.radians(i))
             y = yc + r*np.sin(np.radians(i))
-            theta = -np.arctan2(x - xc, y-yc)
+            theta = np.pi - np.arctan2(x - xc, y - yc)
 
-            self.points.append((x,y,theta))
+            self.points.append((x, y, theta))
 
         return self.points

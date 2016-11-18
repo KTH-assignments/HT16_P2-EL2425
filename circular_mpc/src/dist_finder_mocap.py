@@ -7,10 +7,10 @@ Node to determine deviation from trajectory.
 import rospy
 import numpy as np
 from trajectory_planner import Path
-from slip_control_communications.msg import input_pid
+from slip_control_communications.msg import pose
 from slip_control_communications.msg import mocap_data
 
-pub = rospy.Publisher('error_topic', input_pid, queue_size=10)
+pub = rospy.Publisher('pose_topic', pose, queue_size=1)
 path = Path()
 
 # The reference trajectory
@@ -26,7 +26,7 @@ vel = 20.0
 #-------------------------------------------------------------------------------
 def callback(state):
     min_dist = 100.0
-    min_point = ref_point = None
+    min_point = None
 
     # Find the closest trajectory point
     for point in traj:
@@ -35,25 +35,33 @@ def callback(state):
             min_dist = dist
             min_point = point
 
-    # Ref as a future point in trajectory
-    if min_point != None:
-        ref_point = traj[(traj.index(min_point) + 15)%360]
 
-    # Angle error to reference point
-    angle_error = np.arctan2(ref_point[1] - state.y, ref_point[0] - state.x) - np.radians(state.yaw)
+    # x-wise error
+    x_error = min_dist * sin(state.yaw)
+
+    # y-wise error
+    y_error = -min_dist * cos(state.yaw)
+
+    # Angle error to reference point R
+    angle_error = min_point[2] - np.radians(state.yaw)
 
     while angle_error > np.pi:
         angle_error -= 2*np.pi
     while angle_error < -np.pi:
         angle_error += 2*np.pi
 
-    # Distance to reference point
-    #dist_error = np.sqrt((ref_point[0] - state.x)**2 + (ref_point[1] - state.y)**2)
 
-    # Package the error information into a input_pid type message and publish it
-    msg = input_pid()
-    msg.pid_vel = vel
-    msg.pid_error = angle_error
+    # Create the message that is to be sent to the mpc controller,
+    # pack all relevant information and publish it
+    h = pose.Header()
+    h.stamp = rospy.Time.now()
+
+    msg = pose()
+    msg.header = h
+    msg.x = x_error
+    msg.y = y_error
+    msg.psi = angle_error
+    msg.v = vel
     pub.publish(msg)
 
 
