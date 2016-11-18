@@ -42,8 +42,13 @@ def callback(state):
     # y-wise error
     y_error = -min_dist * cos(state.yaw)
 
-    # Angle error to reference point R
-    angle_error = min_point[2] - np.radians(state.yaw)
+    # Ref as a future point in trajectory
+    if min_point != None:
+        ref_point = traj[(traj.index(min_point) + 15)%360]
+
+    # Angle error to reference point
+    angle_error = np.arctan2(ref_point[1] - state.y, ref_point[0] - state.x) - np.radians(state.yaw)
+
 
     while angle_error > np.pi:
         angle_error -= 2*np.pi
