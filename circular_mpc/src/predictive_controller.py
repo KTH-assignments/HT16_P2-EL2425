@@ -9,7 +9,7 @@ import math
 import numpy as np
 from cvxpy import *
 import scipy.linalg
-from slip_control_communications.msg import pose
+from slip_control_communications.msg import pose_and_reference
 from slip_control_communications.msg import input_model
 
 # Publish the desired velocity and angle to the serial transmitter
@@ -72,14 +72,14 @@ def terminal_cost_penalty(A, B, Q ,R)
 # Solves the optimization problem.
 # Returns the optimum input.
 #-------------------------------------------------------------------------------
-def solve_optimization_problem(num_states, num_inputs, horizon, A, B, Q, R, s_0)
+def solve_optimization_problem(num_states, num_inputs, horizon, A, B, Q, R, s_0, s_ref)
 
     s = Variable(num_states, horizon + 1)
     u = Variable(num_inputs)
 
     states = []
     for t in range(horizon):
-        cost = quad_form(s[:,t], Q) + quad_form(u[:,t], R)
+        cost = quad_form(s[:,t] - s_ref, Q) + quad_form(u[:,t], R)
 
         constr = [s[:,t+1] == A*s[:,t] + B*u[:,t],
                 norm(u[:,t], 'inf') <= np.pi / 3,
@@ -90,7 +90,7 @@ def solve_optimization_problem(num_states, num_inputs, horizon, A, B, Q, R, s_0)
         # Add terminal cost
         Q_f = terminal_cost_penalty(A, B, Q, R)
 
-        cost = cost + quad_form(s[:,t+1], Q_f)
+        cost = cost + quad_form(s[:,t+1] - s_ref, Q_f)
 
         # add terminal constraints
         constr = [norm(u[:,t], 'inf') <= np.pi / 3,
@@ -121,6 +121,11 @@ def callback(data):
     timestamp_last_message = data.header.stamp
 
     # Unpack message
+    ref_x = data.ref_x
+    ref_y = data.ref_y
+    ref_phi = data.ref_psi
+    ref_v = data.ref_v
+
     x = data.x
     y = data.y
     phi = data.psi
@@ -142,9 +147,12 @@ def callback(data):
     # Initial conditions
     s_0 = np.matrix([[x], [y], [phi]])
 
+    # Reference
+    s_ref = np.matrix([[x_ref], [y_ref], [phi_ref]])
+
 
     # Solve the optimization problem
-    optimal_input = solve_optimization_problem(3, 1, N, A, B, Q, R, s_0)
+    optimal_input = solve_optimization_problem(3, 1, N, A, B, Q, R, s_0, s_ref)
 
 
     # Pack the message to be sent to the serial_transmitter node
@@ -163,5 +171,5 @@ if __name__ == '__main__':
     rospy.init_node('centerline_predictive_controller_node', anonymous = True)
     print("[Node] predictive_controller started")
 
-    rospy.Subscriber("pose_topic", pose, callback)
+    rospy.Subscriber("pose_and_reference_topic", pose_and_reference, callback)
     rospy.spin()

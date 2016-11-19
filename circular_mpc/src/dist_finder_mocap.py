@@ -7,10 +7,10 @@ Node to determine deviation from trajectory.
 import rospy
 import numpy as np
 from trajectory_planner import Path
-from slip_control_communications.msg import pose
+from slip_control_communications.msg import pose_and_reference
 from slip_control_communications.msg import mocap_data
 
-pub = rospy.Publisher('pose_topic', pose, queue_size=1)
+pub = rospy.Publisher('pose_and_reference_topic', pose_and_reference, queue_size=1)
 path = Path()
 
 # The reference trajectory
@@ -35,19 +35,19 @@ def callback(state):
             min_dist = dist
             min_point = point
 
-
-    # x-wise error
-    x_error = min_dist * sin(state.yaw)
-
-    # y-wise error
-    y_error = -min_dist * cos(state.yaw)
-
     # Ref as a future point in trajectory
     if min_point != None:
         ref_point = traj[(traj.index(min_point) + 15)%360]
 
+
+    # x-wise error
+    ref_x = ref_point[0]
+
+    # y-wise error
+    ref_y = ref_point[1]
+
     # Angle error to reference point
-    angle_error = np.arctan2(ref_point[1] - state.y, ref_point[0] - state.x) - np.radians(state.yaw)
+    ref_psi = ref_point[2]
 
 
     while angle_error > np.pi:
@@ -58,15 +58,22 @@ def callback(state):
 
     # Create the message that is to be sent to the mpc controller,
     # pack all relevant information and publish it
-    h = pose.Header()
+    h = pose_and_reference.Header()
     h.stamp = rospy.Time.now()
 
-    msg = pose()
+    msg = pose_and_reference()
     msg.header = h
-    msg.x = x_error
-    msg.y = y_error
-    msg.psi = angle_error
+
+    msg.x = state.x
+    msg.y = state.y
+    msg.psi = state.psi
     msg.v = vel
+
+    msg.ref_x = ref_x
+    msg.ref_y = ref_y
+    msg.ref_psi = ref_psi
+    msg.ref_vel = vel
+
     pub.publish(msg)
 
 
