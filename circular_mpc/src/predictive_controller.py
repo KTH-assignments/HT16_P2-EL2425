@@ -21,24 +21,30 @@ lf = 0.17
 # Length of rear axle to center of gravity
 lr = 0.16
 
+# A relevant ratio
+l_q = l_r / (l_r + l_f)
+
 timestamp_last_message = None
+previous_input = 0.0
 
 #-------------------------------------------------------------------------------
-# Extracts the A, B matrices of a reduced order kinematic model whose states
-# are y and phi, and whose only input is delta
+# Extracts the A, B matrices of a reduced order kinematic model
 #-------------------------------------------------------------------------------
-def get_model_matrices(phi, v, ts):
+def get_model_matrices(ref_psi, v, ts):
+
+    beta = np.arctan(l_q * np.tan(previous_input)));
+    p = l_q / (l_q**2 * np.sin(previous_input)**2 + np.cos(previous_input)**2);
 
     matrices = []
 
     # A
     A_11 = 1
     A_12 = 0
-    A_12 = -ts * v * sin(phi)
+    A_12 = -ts * v * np.sin(ref_psi + beta)
 
     A_21 = 0
     A_22 = 1
-    A_23 = ts * v * cos(phi)
+    A_23 = ts * v * np.cos(ref_psi + beta)
 
     A_31 = 0
     A_32 = 0
@@ -47,9 +53,9 @@ def get_model_matrices(phi, v, ts):
     A = np.matrix([A_11, A_12, A_13], [A_21, A_22, A_23], [A_31, A_32, A_33]])
 
     # B
-    B_11 = -ts * float(l_r) * v / (l_r + l_f) * sin(phi)
-    B_12 = ts * float(l_r) * v / (l_r + l_f) * cos(phi)
-    B_13 = ts * float(v) / (l_r + l_f)
+    B_11 = -ts * v * np.sin(ref_psi + beta) * p
+    B_12 = ts * v * np.cos(ref_psi + beta) * p
+    B_13 = ts * v / l_r * np.cos(beta) * p
 
     B = np.matrix([[B_11], [B_12], [B_13]])
 
@@ -123,16 +129,16 @@ def callback(data):
     # Unpack message
     ref_x = data.ref_x
     ref_y = data.ref_y
-    ref_phi = data.ref_psi
+    ref_psi = data.ref_psi
     ref_v = data.ref_v
 
     x = data.x
     y = data.y
-    phi = data.psi
+    psi = data.psi
     v = data.v
 
     # The model's matrices are time-variant. Calculate them.
-    matrices = get_model_matrices(phi, v, ts)
+    matrices = get_model_matrices(ref_psi, v, ts)
 
     A = matrices(0)
     B = matrices(1)
@@ -141,18 +147,21 @@ def callback(data):
     N = 50
 
     # Penalty matrices
-    Q = np.matrix([[0.001, 0, 0], [0, 0.001, 0], [0, 0, 1]])
-    R = 0.1
+    Q = np.matrix([[100, 0, 0], [0, 100, 0], [0, 0, 100]])
+    R = 0.01
 
     # Initial conditions
-    s_0 = np.matrix([[x], [y], [phi]])
+    s_0 = np.matrix([[x], [y], [psi]])
 
     # Reference
-    s_ref = np.matrix([[x_ref], [y_ref], [phi_ref]])
+    s_ref = np.matrix([[x_ref], [y_ref], [psi_ref]])
 
 
     # Solve the optimization problem
     optimal_input = solve_optimization_problem(3, 1, N, A, B, Q, R, s_0, s_ref)
+
+    # Store the input for the next timestep (needed in calculation of beta)
+    global previous_input = optimal_input
 
 
     # Pack the message to be sent to the serial_transmitter node
