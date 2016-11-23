@@ -17,7 +17,7 @@ path = Path()
 # The reference trajectory
 circle = path.get_points()
 
-vel = 12.0
+vel = 22.0
 
 # Previous reference point on the circular trajectory
 previous_ref_point = None

@@ -11,7 +11,7 @@ import numpy as np
 xc = 1.0
 yc = -0.25
 r = 1.5
-vel = 12
+vel = 22
 
 class Path():
     def __init__(self):

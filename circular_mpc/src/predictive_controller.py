@@ -107,8 +107,10 @@ def solve_optimization_problem(num_states, num_inputs, horizon, A, B, Q, R, s_0,
         cost = quad_form(s[:,t] - s_ref, Q) + quad_form(u[:,t], R)
 
         constr = [s[:,t+1] == A*s[:,t] + B*u[:,t],
-                u[:,t] <= np.pi / 3,
-                u[:,t] >= -np.pi / 3]
+                u[0,t] <= np.pi / 3,
+                u[0,t] >= -np.pi / 3,
+                u[1,t] >= 0,
+                u[1,t] <= 30]
 
         states.append(Problem(Minimize(cost), constr))
 
@@ -186,14 +188,17 @@ def callback(data):
     # Solve the optimization problem
     optimum_input = solve_optimization_problem(4, 2, N, A, B, Q, R, s_0, s_ref)
 
+    rospy.loginfo(optimum_input[0])
+    rospy.loginfo(optimum_input[1])
+
     # Store the input for the next timestep (needed in calculation of beta)
     previous_input = optimum_input
 
 
     # Pack the message to be sent to the serial_transmitter node
     msg = input_model()
-    msg.velocity = optimum_inputs[0]
-    msg.angle = optimum_inputs[1]
+    msg.velocity = optimum_input[0]
+    msg.angle = optimum_input[1]
     pub.publish(msg)
 
 
