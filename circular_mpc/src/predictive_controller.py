@@ -27,7 +27,6 @@ l_q = l_r / (l_r + l_f)
 # the velocity's time constant
 tau = 1.34
 
-timestamp_last_message = None
 previous_input = [0, 0]
 
 #-------------------------------------------------------------------------------
@@ -43,7 +42,7 @@ def get_model_matrices(psi, v, ts):
     # A
     A_11 = 1
     A_12 = 0
-    A_13 = ts * np.cos (psi + beta)
+    A_13 = ts * np.cos(psi + beta)
     A_14 = -ts * v * np.sin(psi + beta)
 
     A_21 = 0
@@ -53,12 +52,12 @@ def get_model_matrices(psi, v, ts):
 
     A_31 = 0
     A_32 = 0
-    A_33 = 1 - float(ts) / tau
+    A_33 = 1 - ts / tau
     A_34 = 0
 
     A_41 = 0
     A_42 = 0
-    A_43 = float(ts) / l_r * np.sin(beta)
+    A_43 = ts / l_r * np.sin(beta)
     A_44 = 1
 
     A = np.matrix([[A_11, A_12, A_13, A_14], [A_21, A_22, A_23, A_24], [A_31, A_32, A_33, A_34], [A_41, A_42, A_43, A_44]])
@@ -70,7 +69,7 @@ def get_model_matrices(psi, v, ts):
     B_21 = 0
     B_22 = ts * v * np.cos(psi + beta) * p
 
-    B_31 = ts / tau *v
+    B_31 = ts / tau * v
     B_32 = 0
 
     B_41 = 0
@@ -107,10 +106,10 @@ def solve_optimization_problem(num_states, num_inputs, horizon, A, B, Q, R, s_0,
         cost = quad_form(s[:,t] - s_ref, Q) + quad_form(u[:,t], R)
 
         constr = [s[:,t+1] == A*s[:,t] + B*u[:,t],
-                u[0,t] <= np.pi / 3,
-                u[0,t] >= -np.pi / 3,
-                u[1,t] >= 0,
-                u[1,t] <= 30]
+                u[0,t] >= 0,
+                u[0,t] <= 14,
+                u[1,t] <= np.pi / 3,
+                u[1,t] >= -np.pi / 3]
 
         states.append(Problem(Minimize(cost), constr))
 
@@ -141,18 +140,7 @@ def solve_optimization_problem(num_states, num_inputs, horizon, A, B, Q, R, s_0,
 #-------------------------------------------------------------------------------
 def callback(data):
 
-    global timestamp_last_message
     global previous_input
-
-    # Update the (not necessarily constant) sampling time
-    if timestamp_last_message == None:
-        ts = 0.01
-    else:
-        ts =  rospy.Time.now() - timestamp_last_message
-        ts = ts.to_sec()
-        #rospy.loginfo(ts)
-
-    timestamp_last_message = rospy.Time.now()
 
     # Unpack message
     ref_x = data.ref_x
@@ -164,6 +152,8 @@ def callback(data):
     y = data.y
     v = data.v
     psi = data.psi
+
+    ts = data.ts
 
     # The model's matrices are time-variant. Calculate them.
     matrices = get_model_matrices(psi, v, ts)
@@ -188,18 +178,19 @@ def callback(data):
     # Solve the optimization problem
     optimum_input = solve_optimization_problem(4, 2, N, A, B, Q, R, s_0, s_ref)
 
-    rospy.loginfo(optimum_input[0])
-    rospy.loginfo(optimum_input[1])
-
-    # Store the input for the next timestep (needed in calculation of beta)
-    previous_input = optimum_input
-
 
     # Pack the message to be sent to the serial_transmitter node
     msg = input_model()
     msg.velocity = optimum_input[0]
     msg.angle = optimum_input[1]
     pub.publish(msg)
+
+    rospy.loginfo('-------------')
+    rospy.loginfo('opt velocity: ' + str(optimum_input[0]))
+    rospy.loginfo('opt angle: ' + str(optimum_input[1]))
+
+    # Store the input for the next timestep (needed in calculation of beta)
+    previous_input = optimum_input
 
 
 

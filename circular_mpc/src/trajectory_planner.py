@@ -11,7 +11,7 @@ import numpy as np
 xc = 1.0
 yc = -0.25
 r = 1.5
-vel = 22
+vel = 12
 
 class Path():
     def __init__(self):
@@ -29,4 +29,4 @@ class Path():
             else:
                 self.points.append((x, y, vel, theta + 2*np.pi))
 
-        return self.points
+        return list(self.points)

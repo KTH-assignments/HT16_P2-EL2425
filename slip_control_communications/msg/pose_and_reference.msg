@@ -9,3 +9,5 @@ float32 ref_x
 float32 ref_y
 float32 ref_v
 float32 ref_psi
+
+float32 ts
