@@ -11,6 +11,7 @@ import numpy as np
 xc = 1.0
 yc = -0.25
 r = 1.5
+vel = 12
 
 class Path():
     def __init__(self):
@@ -20,8 +21,12 @@ class Path():
         for i in range(0,360):
             x = xc + r*np.cos(np.radians(i))
             y = yc + r*np.sin(np.radians(i))
+            v = vel
             theta = np.pi - np.arctan2(x - xc, y - yc)
 
-            self.points.append((x, y, theta))
+            if i < 271:
+                self.points.append((x, y, vel, theta))
+            else:
+                self.points.append((x, y, vel, theta + 2*np.pi))
 
         return self.points
