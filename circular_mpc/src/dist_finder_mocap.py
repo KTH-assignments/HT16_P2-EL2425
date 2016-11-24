@@ -18,7 +18,7 @@ path = Path()
 circle = path.get_points()
 
 # The reference velocity. MAKE SURE THIS IS THE SAME IN trajectory_planner.py
-vel = 22.0
+vel = 12.0
 
 # Previous reference point on the circular trajectory
 previous_ref_point = None

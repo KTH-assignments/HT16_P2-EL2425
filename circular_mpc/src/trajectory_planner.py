@@ -8,9 +8,14 @@ Discretized trajectory for circle.
 #import rospy
 import numpy as np
 
-xc = 1.0
-yc = -0.25
-r = 1.5
+#xc = 1.0
+#yc = -0.25
+#r = 1.5
+#vel = 12
+
+xc = 0.8
+yc = 1.6
+r = 1.2
 vel = 12
 
 class Path():
@@ -25,8 +30,8 @@ class Path():
             theta = np.pi - np.arctan2(x - xc, y - yc)
 
             if i < 271:
-                self.points.append((x, y, vel, theta))
+                self.points.append(list((x, y, vel, theta)))
             else:
-                self.points.append((x, y, vel, theta + 2*np.pi))
+                self.points.append(list((x, y, vel, theta + 2*np.pi)))
 
-        return list(self.points)
+        return self.points
