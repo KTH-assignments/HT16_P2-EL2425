@@ -39,6 +39,8 @@ def get_model_matrices(psi, v, ts):
 
     matrices = []
 
+    #ts = 6*ts
+
     # A
     A_11 = 1
     A_12 = 0
@@ -106,8 +108,8 @@ def solve_optimization_problem(num_states, num_inputs, horizon, A, B, Q, R, s_0,
         cost = quad_form(s[:,t] - s_ref, Q) + quad_form(u[:,t], R)
 
         constr = [s[:,t+1] == A*s[:,t] + B*u[:,t],
-                u[0,t] >= 0,
-                u[0,t] <= 14,
+                u[0,t] >= 12,
+                u[0,t] <= 16,
                 u[1,t] <= np.pi / 3,
                 u[1,t] >= -np.pi / 3]
 
@@ -148,12 +150,23 @@ def callback(data):
     ref_v = data.ref_v
     ref_psi = data.ref_psi
 
+    rospy.loginfo('s_ref(x): ' + str(ref_x))
+    rospy.loginfo('s_ref(y): ' + str(ref_y))
+    rospy.loginfo('s_ref(v): ' + str(ref_v))
+    rospy.loginfo('s_ref(psi): ' + str(ref_psi * 180 / np.pi))
+
     x = data.x
     y = data.y
     v = data.v
     psi = data.psi
 
+    rospy.loginfo('s_0(x): ' + str(x))
+    rospy.loginfo('s_0(y): ' + str(y))
+    rospy.loginfo('s_0(v): ' + str(v))
+    rospy.loginfo('s_0(psi): ' + str(psi * 180 / np.pi))
+
     ts = data.ts
+    rospy.loginfo('ts: ' + str(ts))
 
     # The model's matrices are time-variant. Calculate them.
     matrices = get_model_matrices(psi, v, ts)
@@ -165,8 +178,8 @@ def callback(data):
     N = 20
 
     # Penalty matrices
-    Q = np.matrix([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 8]])
-    R = np.matrix([[0.01, 0], [0, 1]])
+    Q = np.matrix([[100, 0, 0, 0], [0, 100, 0, 0], [0, 0, 100, 0], [0, 0, 0, 100]])
+    R = np.matrix([[0.01, 0], [0, 10]])
 
     # Initial conditions
     s_0 = np.matrix([[x], [y], [v], [psi]])
@@ -199,8 +212,8 @@ def callback(data):
 #-------------------------------------------------------------------------------
 if __name__ == '__main__':
 
-    rospy.init_node('centerline_predictive_controller_node', anonymous = True)
+    rospy.init_node('predictive_controller_node', anonymous = True)
     print("[Node] predictive_controller started")
 
-    rospy.Subscriber("pose_and_reference_topic", pose_and_reference, callback)
+    rospy.Subscriber("pose_and_reference_topic", pose_and_reference, callback, queue_size=1)
     rospy.spin()

@@ -18,7 +18,7 @@ path = Path()
 circle = path.get_points()
 
 # The reference velocity. MAKE SURE THIS IS THE SAME IN trajectory_planner.py
-vel = 12.0
+vel = 1.7
 
 # Previous reference point on the circular trajectory
 previous_ref_point = None
@@ -51,7 +51,7 @@ def callback(state):
 
     # Update the (not necessarily constant) sampling time
     if timestamp_last_message == None:
-        ts = 0.01
+        ts = 0.1
     else:
         ts =  rospy.Time.now() - timestamp_last_message
         ts = ts.to_sec()
@@ -70,10 +70,10 @@ def callback(state):
     # The index of the reference point in the circle list
     min_index = circle.index(ref_point)
 
-    if previous_ref_point is not None:
-        if ref_point[3] < previous_ref_point[3]:
-            circle[min_index][3] = circle[min_index][3] + 2*np.pi
-            ref_point[3] = ref_point[3] + 2*np.pi
+    #if previous_ref_point is not None:
+        #if ref_point[3] < previous_ref_point[3]:
+            #circle[min_index][3] = circle[min_index][3] + 2*np.pi
+            #ref_point[3] = ref_point[3] + 2*np.pi
 
     # x coordinate of the reference point
     ref_x = ref_point[0]
@@ -94,7 +94,7 @@ def callback(state):
 
     msg.x = state.x
     msg.y = state.y
-    msg.psi = state.yaw
+    msg.psi = np.radians(state.yaw)
 
     if previous_x is not None:
         msg.v = np.sqrt((state.x - previous_x)**2 + (state.y - previous_y)**2) / ts
