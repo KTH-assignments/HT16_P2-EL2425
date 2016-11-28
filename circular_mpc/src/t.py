@@ -14,6 +14,7 @@ for point in circ:
     ts.append(point[3])
 
 plt.plot(xs, ys)
+plt.axis('equal')
 plt.show()
 
 plt.plot(ts)

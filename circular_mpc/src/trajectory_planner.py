@@ -1,11 +1,10 @@
 #!/usr/bin/env python
 
 '''
-Discretized trajectory for circle.
+Discretized circular trajectory
 
 '''
 
-#import rospy
 import numpy as np
 
 xc = 0.95
@@ -37,7 +36,7 @@ class Path():
             x = xc + r*np.sin(np.pi + np.radians(i))
             y = yc - r*np.cos(np.pi + np.radians(i))
             v = vel
-            theta = -np.pi+np.radians(i)
+            theta = -np.pi + np.radians(i)
 
             self.points.append(list((x, y, vel, theta)))
 

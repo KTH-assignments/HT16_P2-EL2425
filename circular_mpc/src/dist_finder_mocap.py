@@ -17,9 +17,6 @@ path = Path()
 # The reference trajectory
 circle = path.get_points()
 
-# The reference velocity. MAKE SURE THIS IS THE SAME IN trajectory_planner.py
-vel = 1.7
-
 # Previous reference point on the circular trajectory
 previous_ref_point = None
 
@@ -101,7 +98,7 @@ def callback(state):
 
     msg.ref_x = ref_x
     msg.ref_y = ref_y
-    msg.ref_v = vel
+    msg.ref_v = circle[0][2]
     msg.ref_psi = ref_psi
 
     msg.ts = ts
@@ -120,5 +117,5 @@ if __name__ == '__main__':
     rospy.init_node('dist_finder_mocap_node', anonymous=True)
     print("Mocap node started")
 
-    rospy.Subscriber("car_state_topic", mocap_data, callback)
+    rospy.Subscriber("car_state_topic", mocap_data, callback, queue_size=1)
     rospy.spin()

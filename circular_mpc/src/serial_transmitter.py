@@ -10,8 +10,8 @@ from slip_control_communications.msg import input_drive
 from slip_control_communications.msg import input_model
 from std_msgs.msg import Bool
 
-pub = rospy.Publisher('drive_pwm', input_drive , queue_size=10)
-em_pub = rospy.Publisher('eStop', Bool, queue_size=10)
+pub = rospy.Publisher('drive_pwm', input_drive , queue_size=1)
+em_pub = rospy.Publisher('eStop', Bool, queue_size=1)
 
 
 
@@ -35,7 +35,7 @@ def callback(data):
     angle = data.angle
     print("Velocity: ", velocity, "Angle: ", angle)
 
-    angle = angle - 6*np.pi/180
+    #angle = angle + 6*np.pi/180
 
     # Do the computation
     pwm1 = arduino_map(velocity,-100,100,6554,13108);
@@ -47,23 +47,15 @@ def callback(data):
     pub.publish(msg)
 
 
-
-#-------------------------------------------------------------------------------
-# talker
-#-------------------------------------------------------------------------------
-def talker():
-    rospy.init_node('serial_transmitter_node', anonymous=True)
-    print("Serial talker initialized")
-
-    em_pub.publish(False)
-    rospy.Subscriber("drive_parameters_topic", input_model, callback)
-
-    rospy.spin()
-
-
-
 #-------------------------------------------------------------------------------
 # main
 #-------------------------------------------------------------------------------
 if __name__ == '__main__':
-    talker()
+
+    rospy.init_node('serial_transmitter_node', anonymous=True)
+    print("[Node] Serial transmitter initialized")
+
+    em_pub.publish(False)
+    rospy.Subscriber("drive_parameters_topic", input_model, callback, queue_size=1)
+
+    rospy.spin()

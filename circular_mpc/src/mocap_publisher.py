@@ -17,7 +17,7 @@ truck_id = mocap.get_id_from_name("F1TenthB")
 #-------------------------------------------------------------------------------
 def talker():
     rospy.init_node('mocap_publisher_node', anonymous=True)
-    pub = rospy.Publisher('car_state_topic', mocap_data, queue_size=10)
+    pub = rospy.Publisher('car_state_topic', mocap_data, queue_size=1)
     rate = rospy.Rate(10) # 10hz
 
     data = mocap_data()

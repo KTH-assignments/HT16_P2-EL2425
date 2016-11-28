@@ -7,13 +7,14 @@ Node to solve a mpc optimization problem
 import rospy
 import math
 import numpy as np
+from numpy import tan
 from cvxpy import *
 import scipy.linalg
 from slip_control_communications.msg import pose_and_reference
 from slip_control_communications.msg import input_model
 
 # Publish the desired velocity and angle to the serial transmitter
-pub = rospy.Publisher('drive_parameters_topic', input_model, queue_size=10)
+pub = rospy.Publisher('drive_parameters_topic', input_model, queue_size=1)
 
 # Length of front axle to center of gravity
 l_f = 0.17
@@ -25,9 +26,10 @@ l_r = 0.16
 l_q = l_r / (l_r + l_f)
 
 # the velocity's time constant
-tau = 1.34
+tau = 1.0122
 
 previous_input = [0, 0]
+
 
 #-------------------------------------------------------------------------------
 # Extracts the A, B matrices of a reduced order kinematic model
@@ -39,7 +41,7 @@ def get_model_matrices(psi, v, ts):
 
     matrices = []
 
-    #ts = 6*ts
+    #ts = 4*ts
 
     # A
     A_11 = 1
@@ -108,17 +110,16 @@ def solve_optimization_problem(num_states, num_inputs, horizon, A, B, Q, R, s_0,
         cost = quad_form(s[:,t] - s_ref, Q) + quad_form(u[:,t], R)
 
         constr = [s[:,t+1] == A*s[:,t] + B*u[:,t],
-                u[0,t] >= 12,
-                u[0,t] <= 16,
-                u[1,t] <= np.pi / 3,
-                u[1,t] >= -np.pi / 3]
+                u[0,t] >= 11.5,
+                u[0,t] <= 14,
+                u[1,t] >= -np.pi / 3,
+                u[1,t] <= np.pi / 3]
 
         states.append(Problem(Minimize(cost), constr))
 
 
         # Add terminal cost
         #Q_f = terminal_cost_penalty(A, B, Q, R)
-
         #cost = cost + quad_form(s[:,t+1] - s_ref, Q_f)
 
         # input constraints
@@ -126,10 +127,15 @@ def solve_optimization_problem(num_states, num_inputs, horizon, A, B, Q, R, s_0,
 
     # sum problem objectives and concatenate constraints.
     prob = sum(states)
-    #prob.constraints += [s[:,horizon] == s_ref, s[:,0] == s_0]
+
+    # Terminal constraint with slack variables
+    prob.constraints += [s[:,horizon] <= s_ref + np.matrix([[0.5],[0.5],[2],[1]]), s[:,horizon] >= s_ref - np.matrix([[0.5],[0.5],[2],[1]])]
+
+    # Initial conditions constraint
     prob.constraints += [s[:,0] == s_0]
 
-    prob.solve()
+    prob.solve(solver=CVXOPT)
+    #prob.solve()
 
     ret_list = [u[0,0].value, u[1,0].value]
 
@@ -150,22 +156,26 @@ def callback(data):
     ref_v = data.ref_v
     ref_psi = data.ref_psi
 
-    rospy.loginfo('s_ref(x): ' + str(ref_x))
-    rospy.loginfo('s_ref(y): ' + str(ref_y))
-    rospy.loginfo('s_ref(v): ' + str(ref_v))
-    rospy.loginfo('s_ref(psi): ' + str(ref_psi * 180 / np.pi))
-
     x = data.x
     y = data.y
     v = data.v
     psi = data.psi
 
-    rospy.loginfo('s_0(x): ' + str(x))
-    rospy.loginfo('s_0(y): ' + str(y))
-    rospy.loginfo('s_0(v): ' + str(v))
-    rospy.loginfo('s_0(psi): ' + str(psi * 180 / np.pi))
-
     ts = data.ts
+
+    rospy.loginfo('--')
+    rospy.loginfo('s_0(x): ' + str(x))
+    rospy.loginfo('s_ref(x): ' + str(ref_x))
+    rospy.loginfo('--')
+    rospy.loginfo('s_0(y): ' + str(y))
+    rospy.loginfo('s_ref(y): ' + str(ref_y))
+    rospy.loginfo('--')
+    rospy.loginfo('s_0(v): ' + str(v))
+    rospy.loginfo('s_ref(v): ' + str(ref_v))
+    rospy.loginfo('--')
+    rospy.loginfo('s_0(psi): ' + str(psi * 180 / np.pi))
+    rospy.loginfo('s_ref(psi): ' + str(ref_psi * 180 / np.pi))
+    rospy.loginfo('--')
     rospy.loginfo('ts: ' + str(ts))
 
     # The model's matrices are time-variant. Calculate them.
@@ -178,8 +188,8 @@ def callback(data):
     N = 20
 
     # Penalty matrices
-    Q = np.matrix([[100, 0, 0, 0], [0, 100, 0, 0], [0, 0, 100, 0], [0, 0, 0, 100]])
-    R = np.matrix([[0.01, 0], [0, 10]])
+    Q = np.matrix([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]])
+    R = np.matrix([[1, 0], [0, 10]])
 
     # Initial conditions
     s_0 = np.matrix([[x], [y], [v], [psi]])
@@ -189,7 +199,23 @@ def callback(data):
 
 
     # Solve the optimization problem
+    #n = n + 1
+    #if n % 2 == 0:
+        #optimum_input = solve_optimization_problem(4, 2, N, A, B, Q, R, s_0, s_ref)
+    #else:
+    #    optimum_input = previous_input
+
     optimum_input = solve_optimization_problem(4, 2, N, A, B, Q, R, s_0, s_ref)
+
+    if optimum_input[0] is None:
+        optimum_input[0] = 0
+        rospy.loginfo('INVALID THROTTLE')
+
+    if optimum_input[1] is None:
+        optimum_input[1] = 0
+        rospy.loginfo('INVALID STEERING')
+
+    optimum_input[1] = -optimum_input[1]
 
 
     # Pack the message to be sent to the serial_transmitter node
@@ -200,7 +226,7 @@ def callback(data):
 
     rospy.loginfo('-------------')
     rospy.loginfo('opt velocity: ' + str(optimum_input[0]))
-    rospy.loginfo('opt angle: ' + str(optimum_input[1]))
+    rospy.loginfo('opt angle: ' + str(np.degrees(optimum_input[1])))
 
     # Store the input for the next timestep (needed in calculation of beta)
     previous_input = optimum_input

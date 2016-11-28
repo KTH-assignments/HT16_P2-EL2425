@@ -14,7 +14,7 @@ from slip_control_communications.msg import pose
 # TODO make it an argument and include it in the launcher
 vel = 12
 
-pub = rospy.Publisher('pose', pose, queue_size=1)
+pub = rospy.Publisher('pose_topic', pose, queue_size=1)
 
 timestamp_last_message = None
 
@@ -31,9 +31,9 @@ def getRange(data, beam_index):
     distance = data.ranges[beam_index]
 
     # Do some error checking for NaN and ubsurd values
-    if math.isnan(distance) or distance < range_min:
+    if math.isnan(distance) or distance < data.range_min:
         distance = 0
-    if math.isinf(distance) or distance > range_max:
+    if math.isinf(distance) or distance > data.range_max:
         distance = 50
 
     return distance
@@ -86,10 +86,10 @@ def getLateralRanges(data):
     # Consult https://www.hokuyo-aut.jp/02sensor/07scanner/ust_10lx_20lx.html
 
     # Range at 45 degrees (0)
-    range_right = getAverageRange(data, 180, 2)
+    range_right = getAverageRange(data, 180, 10)
 
     # Range at 225 degrees (180)
-    range_left = getAverageRange(data, 900, 2)
+    range_left = getAverageRange(data, 900, 10)
 
     ranges_list = []
     ranges_list.append(range_right)
@@ -115,7 +115,10 @@ def get_minimum_range(data):
     min_index = ranges_scan.index(min_range)
 
     ret_list = []
-    ret_list.append(min_range, min_index)
+    ret_list.append(min_range)
+    ret_list.append(min_index)
+
+    return ret_list
 
 
 #-------------------------------------------------------------------------------
@@ -137,8 +140,8 @@ def callback(data):
     # The list where the front and lateral ranges are stored
     ranges_list = getLateralRanges(data)
 
-    R = ranges_list(0)
-    L = ranges_list(1)
+    R = ranges_list[0]
+    L = ranges_list[1]
 
     # Get the range and the index of the minimum range
     min_list = get_minimum_range(data)
@@ -160,14 +163,13 @@ def callback(data):
         phi += 2*np.pi
 
     # OC is the displacement from the centerline
-    OC = 0.5 * (L-R) * np.cos(phi)
+    OC = -0.5 * (L-R) * np.cos(phi)
 
 
     # Create the message that is to be sent to the mpc controller,
     # pack all relevant information and publish it
 
     msg = pose()
-    msg.header = h
     msg.x = 0
     msg.y = OC
     msg.psi = phi
@@ -185,5 +187,5 @@ if __name__ == '__main__':
     rospy.init_node('dist_finder_lidar_node', anonymous = True)
     print("[Node] dist_finder_lidar started")
 
-    rospy.Subscriber("scan", LaserScan, callback)
+    rospy.Subscriber("scan", LaserScan, callback, queue_size=1)
     rospy.spin()
