@@ -64,6 +64,21 @@ $ rosrun rosserial_python serial_node.py /dev/ttyACM0
 
 ---
 
+## Running package `centerline_mpc`
+
+On Jetson
+
+```
+$ roslaunch centerline_mpc launcher.launch
+
+$ rosrun centerline_pid kill_switch.py
+(Press 'Delete' to stop, 'Home' for normal operation)
+
+$ rosrun rosserial_python serial_node.py /dev/ttyACM0
+```
+
+---
+
 ## Running package `centerline_pid`
 
 On Jetson
