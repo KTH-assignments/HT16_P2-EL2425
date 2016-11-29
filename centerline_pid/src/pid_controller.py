@@ -10,9 +10,23 @@ from slip_control_communications.msg import input_model
 from slip_control_communications.msg import input_pid
 
 sim_rate = 10
-kp = 1.1
-ki = 0.01
-kd = 0.5
+
+# 1
+#kp = 2.1
+#ki = 0.05
+#kd = 0.1
+
+# 2
+#kp = 0.8
+#ki = 0.01
+#kd = 0.1
+
+kp = 0.7
+ki = 0.003
+kd = 0.1
+
+
+
 prev_angle_error = None
 integral_error = 0.0
 angle = 0.0

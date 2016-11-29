@@ -166,8 +166,8 @@ def callback(data):
         phi += 2*np.pi
 
 
-    CCp = 5
-    tan_arg = float(L-R) / ((2 * CCp) * (L+R))
+    CCp = 3
+    tan_arg = float(L-R) / ((2 * CCp))
 
     # Check for angular overflow
     while tan_arg > np.pi:
@@ -182,12 +182,12 @@ def callback(data):
     # facing the left wall. If the vehicle lies at the leftmost half of the
     # lane, then it should turn right, and if it lies at the rightmost half,
     # it should turn left.
-    error = -np.arctan(tan_arg) + phi
+    error = -(-np.arctan(tan_arg) + phi)
 
     # Check for angular overflow
     while error > np.pi:
         error -= 2*np.pi
-    while angle_error < -np.pi:
+    while error < -np.pi:
         error += 2*np.pi
 
 
