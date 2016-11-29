@@ -14,6 +14,29 @@ $ rosrun teleop key_receiver.py
 $ rosrun rosserial_python serial_node.py /dev/ttyACM0
 ```
 
+---
+
+## Running package `circular_mpc`
+
+Locally
+
+```
+$ export ROS_IP=192.168.3.110 (your IP over the picostation1 network)
+$ roslaunch circular_mpc launcher.launch
+
+Open another tab in your terminal
+$ export ROS_IP=192.168.3.110 (your IP over the picostation1 network)
+$ rosrun circular_pid kill_switch.py
+
+(Press 'Delete' to stop, 'Home' for normal operation)
+
+```
+On Jetson
+
+```
+$ export ROS_MASTER_URI=http://192.168.3.110:11311 (your IP over the picostation1 network)
+$ rosrun rosserial_python serial_node.py /dev/ttyACM0
+```
 
 ---
 
@@ -35,7 +58,7 @@ $ rosrun circular_pid kill_switch.py
 On Jetson
 
 ```
-$ export ROS_MASTER_URI=http://192.168.3.110:11311
+$ export ROS_MASTER_URI=http://192.168.3.110:11311 (your IP over the picostation1 network)
 $ rosrun rosserial_python serial_node.py /dev/ttyACM0
 ```
 
@@ -43,22 +66,13 @@ $ rosrun rosserial_python serial_node.py /dev/ttyACM0
 
 ## Running package `centerline_pid`
 
-Locally
-
-```
-$ export ROS_IP=192.168.3.110  (your IP over the picostation1 network)
-$ roslaunch centerline_pid launcher.launch
-
-Open another tab in your terminal
-$ export ROS_IP=192.168.3.110 (your IP over the picostation1 network)
-$ rosrun centerline_pid kill_switch.py
-
-(Press 'Delete' to stop, 'Home' for normal operation)
-
-```
 On Jetson
 
 ```
-$ export ROS_MASTER_URI=http://192.168.3.110:11311
+$ roslaunch centerline_pid launcher.launch
+
+$ rosrun centerline_pid kill_switch.py
+(Press 'Delete' to stop, 'Home' for normal operation)
+
 $ rosrun rosserial_python serial_node.py /dev/ttyACM0
 ```
