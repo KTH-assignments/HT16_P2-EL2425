@@ -38,7 +38,7 @@ timestamp_last_message = None
 
 # The horizon. Make sure that the same number is in the predictive
 # controller script
-N = 20
+N = 10
 
 #-------------------------------------------------------------------------------
 # callback
@@ -47,7 +47,7 @@ N = 20
 #   state: measurements derived from mocap
 #-------------------------------------------------------------------------------
 def callback(state):
-    min_dist = 100.0
+    min_dist = 1000.0
     ref_point = None
     min_index = None
 
@@ -67,9 +67,48 @@ def callback(state):
 
     timestamp_last_message = rospy.Time.now()
 
+    # Find the point that connects the vehicle to the circle.
+    # This point is tangent to the circle, and this tangent passes through
+    # the position of the vehicle.
+    # For visualization see http://jsfiddle.net/zxqCw/1/
+    dx = circle_x_0 - state.x
+    dy = circle_y_0 - state.y
+    dd = np.sqrt(dx**2 + dy**2)
+    a = np.arcsin(circle_r / dd)
+    b = np.arctan2(dy, dx)
+
+#    t = np.pi/2 - a + b
+    #tan_point_x = circle_x_0 - circle_r * np.cos(t)
+    #tan_point_y = circle_y_0 - circle_r * np.sin(t)
+
+
+    # first quarter
+    if state.x > circle_x_0 and state.y > circle_y_0:
+        t = b + np.pi/2 - a + np.pi
+        tan_point_x = circle_x_0 + circle_r * np.cos(t)
+        tan_point_y = circle_y_0 + circle_r * np.sin(t)
+
+    # second quarter
+    if state.x < circle_x_0 and state.y > circle_y_0:
+        t = np.pi -a -b
+        tan_point_x = circle_x_0 + circle_r * np.cos(t)
+        tan_point_y = circle_y_0 - circle_r * np.sin(t)
+
+    # third quarter
+    if state.x < circle_x_0 and state.y < circle_y_0:
+        t = b + np.pi/2 - a + np.pi
+        tan_point_x = circle_x_0 + circle_r * np.cos(t)
+        tan_point_y = circle_y_0 + circle_r * np.sin(t)
+
+    # fourth quarter
+    if state.x > circle_x_0 and state.y < circle_y_0:
+        t = np.pi -a -b
+        tan_point_x = circle_x_0 + circle_r * np.cos(t)
+        tan_point_y = circle_y_0 - circle_r * np.sin(t)
+
     # Find the closest trajectory point
     for point in circle:
-        dist = np.sqrt((state.x - point[0])**2 + (state.y - point[1])**2)
+        dist = np.sqrt((tan_point_x - point[0])**2 + (tan_point_y - point[1])**2)
         if dist < min_dist:
             min_dist = dist
             ref_point = point
@@ -88,7 +127,7 @@ def callback(state):
     if previous_x is not None:
         vel = np.sqrt((state.x - previous_x)**2 + (state.y - previous_y)**2) / ts
     else:
-        vel = 0
+        vel = 0.0
 
     # Create the message that is to be sent to the mpc controller,
     # pack all relevant information and publish it
@@ -111,8 +150,9 @@ def callback(state):
 
     for i in range(1,N+2):
         t = ref_point[2] + vel / circle_r * ts * i
+        #t = ref_point[2] + vel / circle_r * i
         x = circle_x_0 + circle_r * np.cos(t - np.pi/2)
-        y = circle_x_0 + circle_r * np.sin(t - np.pi/2)
+        y = circle_y_0 + circle_r * np.sin(t - np.pi/2)
 
         refs_x.append(x)
         refs_y.append(y)

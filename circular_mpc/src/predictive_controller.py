@@ -109,7 +109,8 @@ def solve_optimization_problem(num_states, num_inputs, horizon, A, B, Q, R, s_0,
     prob = sum(states)
 
     # Terminal constraint with slack variables
-#    prob.constraints += [s[:,horizon] <= s_ref[:,horizon] + np.matrix([[0.5],[0.5],[1]]), s[:,horizon] >= s_ref[:,horizon] - np.matrix([[0.5],[0.5],[1]])]
+    #prob.constraints += [s[:,horizon] <= s_ref[:,horizon] + np.matrix([[0.5],[0.5],[0.1]])]
+    #prob.constraints += [s[:,horizon] >= s_ref[:,horizon] - np.matrix([[0.5],[0.5],[0.1]])]
 
     # Initial conditions constraint
     prob.constraints += [s[:,0] == s_0]
@@ -117,9 +118,9 @@ def solve_optimization_problem(num_states, num_inputs, horizon, A, B, Q, R, s_0,
     prob.solve(solver=CVXOPT)
     #prob.solve()
 
-    ret_list = [u[0].value]
+    ret_value = u[0].value
 
-    return ret_list
+    return ret_value
 
 
 
@@ -127,6 +128,9 @@ def solve_optimization_problem(num_states, num_inputs, horizon, A, B, Q, R, s_0,
 # callback
 #-------------------------------------------------------------------------------
 def callback(data):
+
+    # The horizon
+    N = 5
 
     global previous_input
 
@@ -154,6 +158,8 @@ def callback(data):
     rospy.loginfo('s_ref(psi): ' + str(refs_psi[0] * 180 / np.pi))
     rospy.loginfo('--')
     rospy.loginfo('ts: ' + str(ts))
+    rospy.loginfo('--')
+
 
     # The model's matrices are time-variant. Calculate them.
     matrices = get_model_matrices(psi, v, ts)
@@ -161,12 +167,11 @@ def callback(data):
     A = matrices[0]
     B = matrices[1]
 
-    # The horizon
-    N = 20
+
 
     # Penalty matrices
-    Q = np.matrix([[1000, 0, 0], [0, 1000, 0], [0, 0, 1200]])
-    R = np.matrix([[100]])
+    Q = np.matrix([[100, 0, 0], [0, 100, 0], [0, 0, 1]])
+    R = np.matrix([[80]])
 
     # Initial conditions
     s_0 = np.matrix([[x], [y], [psi]])
@@ -183,30 +188,26 @@ def callback(data):
 
 
     # Solve the optimization problem
-    #n = n + 1
-    #if n % 2 == 0:
-        #optimum_input = solve_optimization_problem(4, 2, N, A, B, Q, R, s_0, s_ref)
-    #else:
-    #    optimum_input = previous_input
-
     optimum_input = solve_optimization_problem(3, 1, N, A, B, Q, R, s_0, s_ref)
 
-    if optimum_input[0] is None:
-        optimum_input[0] = 0
+    if optimum_input is None:
+        optimum_input = 0
         rospy.loginfo('INVALID STEERING')
+
+    optimum_input = optimum_input
 
 
     # Pack the message to be sent to the serial_transmitter node
     msg = input_model()
     msg.velocity = data.v
-    msg.angle = optimum_input[0]
+    msg.angle = optimum_input
     pub.publish(msg)
 
     rospy.loginfo('-------------')
-    rospy.loginfo('opt angle: ' + str(np.degrees(optimum_input[0])))
+    rospy.loginfo('opt angle: ' + str(np.degrees(optimum_input)))
 
     # Store the input for the next timestep (needed in calculation of beta)
-    previous_input = optimum_input[0]
+    previous_input = optimum_input
 
 
 
