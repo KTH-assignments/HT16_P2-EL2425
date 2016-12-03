@@ -31,11 +31,12 @@ def arduino_map(x, in_min, in_max, out_min, out_max):
 #-------------------------------------------------------------------------------
 def callback(data):
 
-    velocity = data.velocity
+    #velocity = data.velocity
+    velocity = 12
     angle = data.angle
     print("Velocity: ", velocity, "Angle: ", angle)
 
-    #angle = angle + 6*np.pi/180
+    angle = angle - 6*np.pi/180
 
     # Do the computation
     pwm1 = arduino_map(velocity,-100,100,6554,13108);

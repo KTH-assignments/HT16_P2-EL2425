@@ -10,7 +10,7 @@ import numpy as np
 from numpy import tan
 from cvxpy import *
 import scipy.linalg
-from slip_control_communications.msg import pose_and_reference
+from slip_control_communications.msg import pose_and_references
 from slip_control_communications.msg import input_model
 
 # Publish the desired velocity and angle to the serial transmitter
@@ -28,7 +28,7 @@ l_q = l_r / (l_r + l_f)
 # the velocity's time constant
 tau = 1.0122
 
-previous_input = [0, 0]
+previous_input = 0
 
 
 #-------------------------------------------------------------------------------
@@ -36,50 +36,32 @@ previous_input = [0, 0]
 #-------------------------------------------------------------------------------
 def get_model_matrices(psi, v, ts):
 
-    beta = np.arctan(l_q * np.tan(previous_input[1]));
-    p = l_q / (l_q**2 * np.sin(previous_input[1])**2 + np.cos(previous_input[1])**2);
+    beta = np.arctan(l_q * np.tan(previous_input));
+    p = l_q / (l_q**2 * np.sin(previous_input)**2 + np.cos(previous_input)**2);
 
     matrices = []
-
-    #ts = 4*ts
 
     # A
     A_11 = 1
     A_12 = 0
-    A_13 = ts * np.cos(psi + beta)
-    A_14 = -ts * v * np.sin(psi + beta)
+    A_13 = -ts * v * np.sin(psi + beta)
 
     A_21 = 0
     A_22 = 1
-    A_23 = ts * np.sin(psi + beta)
-    A_24 = ts * v * np.cos(psi + beta)
+    A_23 = ts * v * np.cos(psi + beta)
 
     A_31 = 0
     A_32 = 0
-    A_33 = 1 - ts / tau
-    A_34 = 0
+    A_33 = 1
 
-    A_41 = 0
-    A_42 = 0
-    A_43 = ts / l_r * np.sin(beta)
-    A_44 = 1
-
-    A = np.matrix([[A_11, A_12, A_13, A_14], [A_21, A_22, A_23, A_24], [A_31, A_32, A_33, A_34], [A_41, A_42, A_43, A_44]])
+    A = np.matrix([[A_11, A_12, A_13], [A_21, A_22, A_23], [A_31, A_32, A_33]])
 
     # B
-    B_11 = 0
-    B_12 = -ts * v * np.sin(psi + beta) * p
+    B_11 = -ts * v * np.sin(psi + beta) * p
+    B_21 = ts * v * np.cos(psi + beta) * p
+    B_31 = ts * v / l_r * np.cos(beta) * p
 
-    B_21 = 0
-    B_22 = ts * v * np.cos(psi + beta) * p
-
-    B_31 = ts / tau * v
-    B_32 = 0
-
-    B_41 = 0
-    B_42 = ts * v / l_r * np.cos(beta) * p
-
-    B = np.matrix([[B_11, B_12], [B_21, B_22], [B_31, B_32], [B_41, B_42]])
+    B = np.matrix([[B_11], [B_21], [B_31]])
 
     matrices.append(A)
     matrices.append(B)
@@ -107,13 +89,11 @@ def solve_optimization_problem(num_states, num_inputs, horizon, A, B, Q, R, s_0,
 
     states = []
     for t in range(horizon):
-        cost = quad_form(s[:,t] - s_ref, Q) + quad_form(u[:,t], R)
+        cost = quad_form(s[:,t] - s_ref[:,t], Q) + quad_form(u[t], R)
 
-        constr = [s[:,t+1] == A*s[:,t] + B*u[:,t],
-                u[0,t] >= 11.5,
-                u[0,t] <= 14,
-                u[1,t] >= -np.pi / 3,
-                u[1,t] <= np.pi / 3]
+        constr = [s[:,t+1] == A*s[:,t] + B*u[t],
+                u[t] >= -np.pi / 3,
+                u[t] <= np.pi / 3]
 
         states.append(Problem(Minimize(cost), constr))
 
@@ -129,7 +109,7 @@ def solve_optimization_problem(num_states, num_inputs, horizon, A, B, Q, R, s_0,
     prob = sum(states)
 
     # Terminal constraint with slack variables
-    prob.constraints += [s[:,horizon] <= s_ref + np.matrix([[0.5],[0.5],[2],[1]]), s[:,horizon] >= s_ref - np.matrix([[0.5],[0.5],[2],[1]])]
+#    prob.constraints += [s[:,horizon] <= s_ref[:,horizon] + np.matrix([[0.5],[0.5],[1]]), s[:,horizon] >= s_ref[:,horizon] - np.matrix([[0.5],[0.5],[1]])]
 
     # Initial conditions constraint
     prob.constraints += [s[:,0] == s_0]
@@ -137,7 +117,7 @@ def solve_optimization_problem(num_states, num_inputs, horizon, A, B, Q, R, s_0,
     prob.solve(solver=CVXOPT)
     #prob.solve()
 
-    ret_list = [u[0,0].value, u[1,0].value]
+    ret_list = [u[0].value]
 
     return ret_list
 
@@ -151,30 +131,27 @@ def callback(data):
     global previous_input
 
     # Unpack message
-    ref_x = data.ref_x
-    ref_y = data.ref_y
-    ref_v = data.ref_v
-    ref_psi = data.ref_psi
-
     x = data.x
     y = data.y
     v = data.v
     psi = data.psi
 
+    refs_x = data.refs_x
+    refs_y = data.refs_y
+    refs_v = data.refs_v
+    refs_psi = data.refs_psi
+
     ts = data.ts
 
     rospy.loginfo('--')
     rospy.loginfo('s_0(x): ' + str(x))
-    rospy.loginfo('s_ref(x): ' + str(ref_x))
+    rospy.loginfo('s_ref(x): ' + str(refs_x[0]))
     rospy.loginfo('--')
     rospy.loginfo('s_0(y): ' + str(y))
-    rospy.loginfo('s_ref(y): ' + str(ref_y))
-    rospy.loginfo('--')
-    rospy.loginfo('s_0(v): ' + str(v))
-    rospy.loginfo('s_ref(v): ' + str(ref_v))
+    rospy.loginfo('s_ref(y): ' + str(refs_y[0]))
     rospy.loginfo('--')
     rospy.loginfo('s_0(psi): ' + str(psi * 180 / np.pi))
-    rospy.loginfo('s_ref(psi): ' + str(ref_psi * 180 / np.pi))
+    rospy.loginfo('s_ref(psi): ' + str(refs_psi[0] * 180 / np.pi))
     rospy.loginfo('--')
     rospy.loginfo('ts: ' + str(ts))
 
@@ -188,14 +165,21 @@ def callback(data):
     N = 20
 
     # Penalty matrices
-    Q = np.matrix([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]])
-    R = np.matrix([[1, 0], [0, 10]])
+    Q = np.matrix([[1000, 0, 0], [0, 1000, 0], [0, 0, 1200]])
+    R = np.matrix([[100]])
 
     # Initial conditions
-    s_0 = np.matrix([[x], [y], [v], [psi]])
+    s_0 = np.matrix([[x], [y], [psi]])
 
-    # Reference
-    s_ref = np.matrix([[ref_x], [ref_y], [ref_v], [ref_psi]])
+    # References. Consider the refs_XXX lists as columns and append them
+    # in the appropriate order
+    refs_x_matrix = np.matrix(refs_x)
+    refs_y_matrix = np.matrix(refs_y)
+    refs_psi_matrix = np.matrix(refs_psi)
+
+    s_ref = np.matrix(refs_x_matrix)
+    s_ref = np.append(s_ref, refs_y_matrix, axis=0)
+    s_ref = np.append(s_ref, refs_psi_matrix, axis=0)
 
 
     # Solve the optimization problem
@@ -205,31 +189,24 @@ def callback(data):
     #else:
     #    optimum_input = previous_input
 
-    optimum_input = solve_optimization_problem(4, 2, N, A, B, Q, R, s_0, s_ref)
+    optimum_input = solve_optimization_problem(3, 1, N, A, B, Q, R, s_0, s_ref)
 
     if optimum_input[0] is None:
         optimum_input[0] = 0
-        rospy.loginfo('INVALID THROTTLE')
-
-    if optimum_input[1] is None:
-        optimum_input[1] = 0
         rospy.loginfo('INVALID STEERING')
-
-    optimum_input[1] = -optimum_input[1]
 
 
     # Pack the message to be sent to the serial_transmitter node
     msg = input_model()
-    msg.velocity = optimum_input[0]
-    msg.angle = optimum_input[1]
+    msg.velocity = data.v
+    msg.angle = optimum_input[0]
     pub.publish(msg)
 
     rospy.loginfo('-------------')
-    rospy.loginfo('opt velocity: ' + str(optimum_input[0]))
-    rospy.loginfo('opt angle: ' + str(np.degrees(optimum_input[1])))
+    rospy.loginfo('opt angle: ' + str(np.degrees(optimum_input[0])))
 
     # Store the input for the next timestep (needed in calculation of beta)
-    previous_input = optimum_input
+    previous_input = optimum_input[0]
 
 
 
@@ -241,5 +218,5 @@ if __name__ == '__main__':
     rospy.init_node('predictive_controller_node', anonymous = True)
     print("[Node] predictive_controller started")
 
-    rospy.Subscriber("pose_and_reference_topic", pose_and_reference, callback, queue_size=1)
+    rospy.Subscriber("pose_and_reference_topic", pose_and_references, callback, queue_size=1)
     rospy.spin()

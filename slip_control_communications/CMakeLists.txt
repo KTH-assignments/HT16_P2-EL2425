@@ -16,7 +16,7 @@ add_message_files(
   lidar_data.msg
   mocap_data.msg
   pose.msg
-  pose_and_reference.msg
+  pose_and_references.msg
   )
 
 generate_messages(

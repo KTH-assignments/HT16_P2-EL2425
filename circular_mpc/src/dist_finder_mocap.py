@@ -8,14 +8,21 @@ import rospy
 import numpy as np
 import std_msgs
 from trajectory_planner import Path
-from slip_control_communications.msg import pose_and_reference
+from slip_control_communications.msg import pose_and_references
 from slip_control_communications.msg import mocap_data
 
-pub = rospy.Publisher('pose_and_reference_topic', pose_and_reference, queue_size=1)
+pub = rospy.Publisher('pose_and_reference_topic', pose_and_references, queue_size=1)
 path = Path()
 
 # The reference trajectory
 circle = path.get_points()
+
+# And the coordinates of its center, and its radius as well.
+circle_center_and_radius = path.get_center_and_radius()
+
+circle_x_0 = circle_center_and_radius[0]
+circle_y_0 = circle_center_and_radius[1]
+circle_r = circle_center_and_radius[2]
 
 # Previous reference point on the circular trajectory
 previous_ref_point = None
@@ -28,6 +35,10 @@ previous_y = None
 # the actual sampling time, that is, the time between two consecutive
 # callbacks
 timestamp_last_message = None
+
+# The horizon. Make sure that the same number is in the predictive
+# controller script
+N = 20
 
 #-------------------------------------------------------------------------------
 # callback
@@ -72,34 +83,46 @@ def callback(state):
             #circle[min_index][3] = circle[min_index][3] + 2*np.pi
             #ref_point[3] = ref_point[3] + 2*np.pi
 
-    # x coordinate of the reference point
-    ref_x = ref_point[0]
-
-    # y coordinate of the reference point
-    ref_y = ref_point[1]
-
-    # velocity of the reference point
-    ref_v = ref_point[2]
-
-    # orientation of the reference point
-    ref_psi = ref_point[3]
-
+    # MEASURE the velocity of the vehicle. Ideally this would come from a
+    # Kalman filter.
+    if previous_x is not None:
+        vel = np.sqrt((state.x - previous_x)**2 + (state.y - previous_y)**2) / ts
+    else:
+        vel = 0
 
     # Create the message that is to be sent to the mpc controller,
     # pack all relevant information and publish it
-    msg = pose_and_reference()
+    msg = pose_and_references()
 
     msg.x = state.x
     msg.y = state.y
     msg.psi = np.radians(state.yaw)
+    msg.v = vel
 
-    if previous_x is not None:
-        msg.v = np.sqrt((state.x - previous_x)**2 + (state.y - previous_y)**2) / ts
 
-    msg.ref_x = ref_x
-    msg.ref_y = ref_y
-    msg.ref_v = circle[0][2]
-    msg.ref_psi = ref_psi
+    # The array of references. Each is a separate point on the circle,
+    # each ahead from the previous, starting from ref_point.
+    # These will be the points the vehicle will have to plan to pass while
+    # running the prediction equations
+    refs_x = []
+    refs_y = []
+    refs_v = []
+    refs_psi = []
+
+    for i in range(1,N+2):
+        t = ref_point[2] + vel / circle_r * ts * i
+        x = circle_x_0 + circle_r * np.cos(t - np.pi/2)
+        y = circle_x_0 + circle_r * np.sin(t - np.pi/2)
+
+        refs_x.append(x)
+        refs_y.append(y)
+        refs_v.append(vel)
+        refs_psi.append(t)
+
+    msg.refs_x = refs_x
+    msg.refs_y = refs_y
+    msg.refs_v = refs_v
+    msg.refs_psi = refs_psi
 
     msg.ts = ts
 
