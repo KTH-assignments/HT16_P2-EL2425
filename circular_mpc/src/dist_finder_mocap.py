@@ -38,7 +38,7 @@ timestamp_last_message = None
 
 # The horizon. Make sure that the same number is in the predictive
 # controller script
-N = 10
+N = 20
 
 #-------------------------------------------------------------------------------
 # callback
@@ -74,37 +74,45 @@ def callback(state):
     dx = circle_x_0 - state.x
     dy = circle_y_0 - state.y
     dd = np.sqrt(dx**2 + dy**2)
-    a = np.arcsin(circle_r / dd)
-    b = np.arctan2(dy, dx)
-
-#    t = np.pi/2 - a + b
-    #tan_point_x = circle_x_0 - circle_r * np.cos(t)
-    #tan_point_y = circle_y_0 - circle_r * np.sin(t)
 
 
-    # first quarter
-    if state.x > circle_x_0 and state.y > circle_y_0:
-        t = b + np.pi/2 - a + np.pi
-        tan_point_x = circle_x_0 + circle_r * np.cos(t)
-        tan_point_y = circle_y_0 + circle_r * np.sin(t)
+    # The vehicle is outside the circle
+    if dd >= circle_r:
 
-    # second quarter
-    if state.x < circle_x_0 and state.y > circle_y_0:
-        t = np.pi -a -b
-        tan_point_x = circle_x_0 + circle_r * np.cos(t)
-        tan_point_y = circle_y_0 - circle_r * np.sin(t)
+        a = np.arcsin(circle_r / dd)
+        b = np.arctan2(dy, dx)
 
-    # third quarter
-    if state.x < circle_x_0 and state.y < circle_y_0:
-        t = b + np.pi/2 - a + np.pi
-        tan_point_x = circle_x_0 + circle_r * np.cos(t)
-        tan_point_y = circle_y_0 + circle_r * np.sin(t)
+        # first quarter
+        if state.x > circle_x_0 and state.y > circle_y_0:
+            t = b + np.pi/2 - a + np.pi
+            tan_point_x = circle_x_0 + circle_r * np.cos(t)
+            tan_point_y = circle_y_0 + circle_r * np.sin(t)
 
-    # fourth quarter
-    if state.x > circle_x_0 and state.y < circle_y_0:
-        t = np.pi -a -b
-        tan_point_x = circle_x_0 + circle_r * np.cos(t)
-        tan_point_y = circle_y_0 - circle_r * np.sin(t)
+        # second quarter
+        if state.x < circle_x_0 and state.y > circle_y_0:
+            t = np.pi -a -b
+            tan_point_x = circle_x_0 + circle_r * np.cos(t)
+            tan_point_y = circle_y_0 - circle_r * np.sin(t)
+
+        # third quarter
+        if state.x < circle_x_0 and state.y < circle_y_0:
+            t = b + np.pi/2 - a + np.pi
+            tan_point_x = circle_x_0 + circle_r * np.cos(t)
+            tan_point_y = circle_y_0 + circle_r * np.sin(t)
+
+        # fourth quarter
+        if state.x > circle_x_0 and state.y < circle_y_0:
+            t = np.pi -a -b
+            tan_point_x = circle_x_0 + circle_r * np.cos(t)
+            tan_point_y = circle_y_0 - circle_r * np.sin(t)
+
+    # The vehicle is inside the circle
+    else:
+
+        tan_point_x = state.x
+        tan_point_y = state.y
+
+
 
     # Find the closest trajectory point
     for point in circle:
@@ -150,7 +158,6 @@ def callback(state):
 
     for i in range(1,N+2):
         t = ref_point[2] + vel / circle_r * ts * i
-        #t = ref_point[2] + vel / circle_r * i
         x = circle_x_0 + circle_r * np.cos(t - np.pi/2)
         y = circle_y_0 + circle_r * np.sin(t - np.pi/2)
 
