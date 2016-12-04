@@ -38,7 +38,7 @@ timestamp_last_message = None
 
 # The horizon. Make sure that the same number is in the predictive
 # controller script
-N = 20
+N = 10
 
 
 # Given the coordinates of a point (in this case the vehicle V) at x_v and y_v,
@@ -62,7 +62,7 @@ def get_tangent_point(x_v, y_v, x_c, y_c, r):
         tan_point_x = x_c + r * np.cos(t)
         tan_point_y = y_c + r * np.sin(t)
 
-    # The vehicle is inside the circle
+    # The vehicle is inside the circle: there is no tangent
     else:
 
         tan_point_x = x_v

@@ -98,19 +98,17 @@ def solve_optimization_problem(num_states, num_inputs, horizon, A, B, Q, R, s_0,
         states.append(Problem(Minimize(cost), constr))
 
 
-        # Add terminal cost
-        #Q_f = terminal_cost_penalty(A, B, Q, R)
-        #cost = cost + quad_form(s[:,t+1] - s_ref, Q_f)
-
-        # input constraints
-        states.append(Problem(Minimize(cost), constr))
+    # Add terminal cost
+    #Q_f = terminal_cost_penalty(A, B, Q, R)
+    #cost = quad_form(s[:,t+1] - s_ref[:,t+1], Q_f)
+    #states.append(Problem(Minimize(cost), constr))
 
     # sum problem objectives and concatenate constraints.
     prob = sum(states)
 
     # Terminal constraint with slack variables
-    #prob.constraints += [s[:,horizon] <= s_ref[:,horizon] + np.matrix([[0.5],[0.5],[0.1]])]
-    #prob.constraints += [s[:,horizon] >= s_ref[:,horizon] - np.matrix([[0.5],[0.5],[0.1]])]
+    #prob.constraints += [s[:,horizon] <= s_ref[:,horizon] + np.matrix([[1],[1],[np.pi/2]])]
+    #prob.constraints += [s[:,horizon] >= s_ref[:,horizon] - np.matrix([[0.5],[0.5],[1]])]
 
     # Initial conditions constraint
     prob.constraints += [s[:,0] == s_0]
@@ -130,7 +128,7 @@ def solve_optimization_problem(num_states, num_inputs, horizon, A, B, Q, R, s_0,
 def callback(data):
 
     # The horizon
-    N = 5
+    N = 4
 
     global previous_input
 
@@ -169,8 +167,11 @@ def callback(data):
 
 
     # Penalty matrices
-    Q = np.matrix([[100, 0, 0], [0, 100, 0], [0, 0, 120]])
-    R = np.matrix([[400]])
+    #Q = np.matrix([[100, 0, 0], [0, 100, 0], [0, 0, 150]])
+    #R = np.matrix([[400]])
+
+    Q = np.matrix([[100, 0, 0], [0, 100, 0], [0, 0, 150]])
+    R = np.matrix([[500]])
 
     # Initial conditions
     s_0 = np.matrix([[x], [y], [psi]])
