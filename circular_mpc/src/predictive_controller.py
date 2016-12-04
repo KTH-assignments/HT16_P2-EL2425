@@ -130,7 +130,7 @@ def solve_optimization_problem(num_states, num_inputs, horizon, A, B, Q, R, s_0,
 def callback(data):
 
     # The horizon
-    N = 6
+    N = 5
 
     global previous_input
 
@@ -169,8 +169,8 @@ def callback(data):
 
 
     # Penalty matrices
-    Q = np.matrix([[10, 0, 0], [0, 10, 0], [0, 0, 1000]])
-    R = np.matrix([[1000]])
+    Q = np.matrix([[100, 0, 0], [0, 100, 0], [0, 0, 80]])
+    R = np.matrix([[400]])
 
     # Initial conditions
     s_0 = np.matrix([[x], [y], [psi]])

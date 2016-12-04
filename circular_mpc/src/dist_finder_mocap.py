@@ -40,6 +40,70 @@ timestamp_last_message = None
 # controller script
 N = 20
 
+
+# Given the coordinates of a point (in this case the vehicle V) at x_v and y_v,
+# and the coordinates of the center (x_c, y_c) of a circle and its radius (r),
+# find point X where the tangent at point X passes through point V
+# For visualization see http://jsfiddle.net/zxqCw/1/
+def get_tangent_point(x_v, y_v, x_c, y_c, r):
+    dx = x_v - x_c
+    dy = y_v - y_c
+    dd = np.sqrt(dx**2 + dy**2)
+
+
+    # The vehicle is outside the circle
+    if dd >= r:
+
+        a = np.arcsin(r / dd)
+        b = np.arctan2(dy, dx)
+
+#        # first quarter
+        #if dx > 0 and dy > 0:
+            #t = b + np.pi/2 - a + np.pi
+            #tan_point_x = x_c + r * np.cos(t)
+            #tan_point_y = y_c + r * np.sin(t)
+
+        ## second quarter
+        #if dx < 0 and dy > 0:
+            #t = np.pi -a -b
+            #tan_point_x = x_c + r * np.cos(t)
+            #tan_point_y = y_c - r * np.sin(t)
+
+        ## third quarter
+        #if dx < 0 and dy < 0:
+            #t = b + np.pi/2 - a + np.pi
+            #tan_point_x = x_c + r * np.cos(t)
+            #tan_point_y = y_c + r * np.sin(t)
+
+        ## fourth quarter
+        #if dx > 0 and dy < 0:
+            #t = np.pi -a -b
+            #tan_point_x = x_c + r * np.cos(t)
+            #tan_point_y = y_c - r * np.sin(t)
+
+
+        t = b + np.pi/2 - a
+
+        # second and third quarter
+        #if dx < 0:
+            #t = t + np.pi
+
+        tan_point_x = x_c + r * np.cos(t)
+        tan_point_y = y_c + r * np.sin(t)
+
+    # The vehicle is inside the circle
+    else:
+
+        tan_point_x = x_v
+        tan_point_y = y_v
+
+
+    ret_list = []
+    ret_list.append(tan_point_x)
+    ret_list.append(tan_point_y)
+    return ret_list
+
+
 #-------------------------------------------------------------------------------
 # callback
 #
@@ -70,48 +134,10 @@ def callback(state):
     # Find the point that connects the vehicle to the circle.
     # This point is tangent to the circle, and this tangent passes through
     # the position of the vehicle.
-    # For visualization see http://jsfiddle.net/zxqCw/1/
-    dx = circle_x_0 - state.x
-    dy = circle_y_0 - state.y
-    dd = np.sqrt(dx**2 + dy**2)
+    tan_point_list = get_tangent_point(state.x, state.y, circle_x_0, circle_y_0, circle_r)
 
-
-    # The vehicle is outside the circle
-    if dd >= circle_r:
-
-        a = np.arcsin(circle_r / dd)
-        b = np.arctan2(dy, dx)
-
-        # first quarter
-        if state.x > circle_x_0 and state.y > circle_y_0:
-            t = b + np.pi/2 - a + np.pi
-            tan_point_x = circle_x_0 + circle_r * np.cos(t)
-            tan_point_y = circle_y_0 + circle_r * np.sin(t)
-
-        # second quarter
-        if state.x < circle_x_0 and state.y > circle_y_0:
-            t = np.pi -a -b
-            tan_point_x = circle_x_0 + circle_r * np.cos(t)
-            tan_point_y = circle_y_0 - circle_r * np.sin(t)
-
-        # third quarter
-        if state.x < circle_x_0 and state.y < circle_y_0:
-            t = b + np.pi/2 - a + np.pi
-            tan_point_x = circle_x_0 + circle_r * np.cos(t)
-            tan_point_y = circle_y_0 + circle_r * np.sin(t)
-
-        # fourth quarter
-        if state.x > circle_x_0 and state.y < circle_y_0:
-            t = np.pi -a -b
-            tan_point_x = circle_x_0 + circle_r * np.cos(t)
-            tan_point_y = circle_y_0 - circle_r * np.sin(t)
-
-    # The vehicle is inside the circle
-    else:
-
-        tan_point_x = state.x
-        tan_point_y = state.y
-
+    tan_point_x = tan_point_list[0]
+    tan_point_y = tan_point_list[1]
 
 
     # Find the closest trajectory point
