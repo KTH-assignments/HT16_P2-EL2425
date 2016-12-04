@@ -11,7 +11,7 @@ ts = []
 for point in circ:
     xs.append(point[0])
     ys.append(point[1])
-    ts.append(point[3])
+    ts.append(point[2])
 
 plt.plot(xs, ys)
 plt.axis('equal')

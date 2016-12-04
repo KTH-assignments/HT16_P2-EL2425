@@ -25,14 +25,14 @@ class Path():
         self.points = []
 
     def get_points(self):
-        for i in range(0,180):
+        for i in range(0,181):
             x = self.xc + self.r*np.sin(np.radians(i))
             y = self.yc - self.r*np.cos(np.radians(i))
             theta = np.radians(i)
 
             self.points.append(list((x, y, theta)))
 
-        for i in range(0,180):
+        for i in range(1,180):
             x = self.xc + self.r*np.sin(np.pi + np.radians(i))
             y = self.yc - self.r*np.cos(np.pi + np.radians(i))
             theta = -np.pi + np.radians(i)

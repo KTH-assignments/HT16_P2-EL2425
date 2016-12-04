@@ -169,7 +169,7 @@ def callback(data):
 
 
     # Penalty matrices
-    Q = np.matrix([[100, 0, 0], [0, 100, 0], [0, 0, 80]])
+    Q = np.matrix([[100, 0, 0], [0, 100, 0], [0, 0, 120]])
     R = np.matrix([[400]])
 
     # Initial conditions

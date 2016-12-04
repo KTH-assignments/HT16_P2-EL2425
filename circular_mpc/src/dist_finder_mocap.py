@@ -57,36 +57,7 @@ def get_tangent_point(x_v, y_v, x_c, y_c, r):
         a = np.arcsin(r / dd)
         b = np.arctan2(dy, dx)
 
-#        # first quarter
-        #if dx > 0 and dy > 0:
-            #t = b + np.pi/2 - a + np.pi
-            #tan_point_x = x_c + r * np.cos(t)
-            #tan_point_y = y_c + r * np.sin(t)
-
-        ## second quarter
-        #if dx < 0 and dy > 0:
-            #t = np.pi -a -b
-            #tan_point_x = x_c + r * np.cos(t)
-            #tan_point_y = y_c - r * np.sin(t)
-
-        ## third quarter
-        #if dx < 0 and dy < 0:
-            #t = b + np.pi/2 - a + np.pi
-            #tan_point_x = x_c + r * np.cos(t)
-            #tan_point_y = y_c + r * np.sin(t)
-
-        ## fourth quarter
-        #if dx > 0 and dy < 0:
-            #t = np.pi -a -b
-            #tan_point_x = x_c + r * np.cos(t)
-            #tan_point_y = y_c - r * np.sin(t)
-
-
         t = b + np.pi/2 - a
-
-        # second and third quarter
-        #if dx < 0:
-            #t = t + np.pi
 
         tan_point_x = x_c + r * np.cos(t)
         tan_point_y = y_c + r * np.sin(t)
@@ -183,7 +154,14 @@ def callback(state):
     refs_psi = []
 
     for i in range(1,N+2):
+
+        if np.radians(state.yaw) >= 0 and np.radians(state.yaw) <= np.pi:
+
+            if ref_point[2] < 0:
+                ref_point[2] = ref_point[2] + 2*np.pi
+
         t = ref_point[2] + vel / circle_r * ts * i
+
         x = circle_x_0 + circle_r * np.cos(t - np.pi/2)
         y = circle_y_0 + circle_r * np.sin(t - np.pi/2)
 
