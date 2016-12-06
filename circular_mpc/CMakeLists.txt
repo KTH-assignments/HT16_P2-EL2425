@@ -13,6 +13,11 @@ find_package(catkin REQUIRED COMPONENTS
   message_generation
   geometry_msgs
   tf
+  dynamic_reconfigure
+)
+
+generate_dynamic_reconfigure_options(
+  cfg/config.cfg
 )
 
 ## System dependencies are found with CMake's conventions

@@ -5,6 +5,10 @@ Node to solve a mpc optimization problem
 '''
 
 import rospy
+from dynamic_reconfigure.server import Server
+from circular_mpc.cfg import circular_mpcConfig
+
+
 import math
 import numpy as np
 from numpy import tan
@@ -12,6 +16,8 @@ from cvxpy import *
 import scipy.linalg
 from slip_control_communications.msg import pose_and_references
 from slip_control_communications.msg import input_model
+
+
 
 # Publish the desired velocity and angle to the serial transmitter
 pub = rospy.Publisher('drive_parameters_topic', input_model, queue_size=1)
@@ -127,10 +133,11 @@ def solve_optimization_problem(num_states, num_inputs, horizon, A, B, Q, R, s_0,
 #-------------------------------------------------------------------------------
 def callback(data):
 
-    # The horizon
-    N = 4
+    global N, Q_x, Q_y, Q_v, Q_psi, R_v, R_delta, previous_input
 
-    global previous_input
+    # The horizon
+    #N = 4
+
 
     # Unpack message
     x = data.x
@@ -170,8 +177,12 @@ def callback(data):
     #Q = np.matrix([[100, 0, 0], [0, 100, 0], [0, 0, 150]])
     #R = np.matrix([[400]])
 
-    Q = np.matrix([[100, 0, 0], [0, 100, 0], [0, 0, 150]])
-    R = np.matrix([[500]])
+    # Defaults
+    #Q = np.matrix([[100, 0, 0], [0, 100, 0], [0, 0, 150]])
+    #R = np.matrix([[500]])
+
+    Q = np.matrix([[Q_x, 0, 0], [0, Q_y, 0], [0, 0, Q_psi]])
+    R = np.matrix([[R_delta]])
 
     # Initial conditions
     s_0 = np.matrix([[x], [y], [psi]])
@@ -214,6 +225,26 @@ def callback(data):
 
 
 #-------------------------------------------------------------------------------
+# Callback for dynamically reconfigurable parameters
+#-------------------------------------------------------------------------------
+def dynamic_reconfigure_callback(config, level):
+
+    global N, Q_x, Q_y, Q_v, Q_psi, R_v, R_delta
+
+    N = config.N
+
+    Q_x = config.Q_x
+    Q_y = config.Q_y
+    Q_v = config.Q_v
+    Q_psi = config.Q_psi
+
+    R_v = config.R_v
+    R_delta = config.R_delta
+
+    return config
+
+
+#-------------------------------------------------------------------------------
 # main
 #-------------------------------------------------------------------------------
 if __name__ == '__main__':
@@ -222,4 +253,5 @@ if __name__ == '__main__':
     rospy.loginfo("[Node] predictive_controller_node started")
 
     rospy.Subscriber("pose_and_references_topic", pose_and_references, callback, queue_size=1)
+    dynamic_reconfigure_server = Server(circular_mpcConfig, dynamic_reconfigure_callback)
     rospy.spin()
