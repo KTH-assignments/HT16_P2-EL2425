@@ -1,11 +1,16 @@
 <launch>
 
-	<node name="mocap_publisher_node" pkg="circular_mpc" type="mocap_publisher.py" />
+	<node name="mocap_publisher_node"       pkg="circular_mpc" type="mocap_publisher.py" />
 
-	<node name="dist_finder_mocap_node" pkg="circular_mpc" type="dist_finder_mocap.py" />
+	<node name="dist_finder_mocap_node"     pkg="circular_mpc" type="dist_finder_mocap.py" />
 
 	<node name="predictive_controller_node" pkg="circular_mpc" type="predictive_controller.py" output="screen"/>
 
-	<node name="serial_transmitter_node" pkg="circular_mpc" type="serial_transmitter.py" />
+	<node name="serial_transmitter_node"    pkg="circular_mpc" type="serial_transmitter.py" />
+
+  <!--
+	<node name="logger_states_node"         pkg="circular_mpc" type="logger_states.py" />
+	<node name="logger_inputs_node"         pkg="circular_mpc" type="logger_inputs.py" />
+  -->
 
 </launch>

@@ -54,7 +54,7 @@ def callback(data):
 if __name__ == '__main__':
 
     rospy.init_node('serial_transmitter_node', anonymous=True)
-    print("[Node] Serial transmitter initialized")
+    rospy.loginfo("[Node] serial_transmitter_node initialized")
 
     em_pub.publish(False)
     rospy.Subscriber("drive_parameters_topic", input_model, callback, queue_size=1)

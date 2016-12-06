@@ -11,7 +11,7 @@ from trajectory_planner import Path
 from slip_control_communications.msg import pose_and_references
 from slip_control_communications.msg import mocap_data
 
-pub = rospy.Publisher('pose_and_reference_topic', pose_and_references, queue_size=1)
+pub = rospy.Publisher('pose_and_references_topic', pose_and_references, queue_size=1)
 path = Path()
 
 # The reference trajectory
@@ -189,7 +189,7 @@ def callback(state):
 #-------------------------------------------------------------------------------
 if __name__ == '__main__':
     rospy.init_node('dist_finder_mocap_node', anonymous=True)
-    print("Mocap node started")
+    rospy.loginfo("[Node] dist_finder_mocap_node started")
 
     rospy.Subscriber("car_state_topic", mocap_data, callback, queue_size=1)
     rospy.spin()

@@ -219,7 +219,7 @@ def callback(data):
 if __name__ == '__main__':
 
     rospy.init_node('predictive_controller_node', anonymous = True)
-    print("[Node] predictive_controller started")
+    rospy.loginfo("[Node] predictive_controller_node started")
 
-    rospy.Subscriber("pose_and_reference_topic", pose_and_references, callback, queue_size=1)
+    rospy.Subscriber("pose_and_references_topic", pose_and_references, callback, queue_size=1)
     rospy.spin()
