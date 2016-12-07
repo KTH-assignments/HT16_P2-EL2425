@@ -101,11 +101,8 @@ def solve_optimization_problem(num_states, num_inputs, horizon, A, B, Q, R, s_0,
 
         # Add terminal cost
         #Q_f = terminal_cost_penalty(A, B, Q, R)
-
         #cost = cost + quad_form(s[:,t+1] - s_ref, Q_f)
-
-        # input constraints
-        states.append(Problem(Minimize(cost), constr))
+        #states.append(Problem(Minimize(cost), constr))
 
     # sum problem objectives and concatenate constraints.
     prob = sum(states)

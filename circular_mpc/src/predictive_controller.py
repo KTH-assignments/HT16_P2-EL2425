@@ -12,6 +12,7 @@ from circular_mpc.cfg import circular_mpcConfig
 import math
 import numpy as np
 from numpy import tan
+
 from cvxpy import *
 import scipy.linalg
 from slip_control_communications.msg import pose_and_references
@@ -35,6 +36,11 @@ l_q = l_r / (l_r + l_f)
 tau = 1.0122
 
 previous_input = 0
+
+# The timestamp of the last message received. Will be needed in calculating
+# the execution time, that is, the time between two consecutive
+# callbacks
+timestamp_last_message = None
 
 
 #-------------------------------------------------------------------------------
@@ -105,7 +111,7 @@ def solve_optimization_problem(num_states, num_inputs, horizon, A, B, Q, R, s_0,
 
 
     # Add terminal cost
-    #Q_f = terminal_cost_penalty(A, B, Q, R)
+#    Q_f = terminal_cost_penalty(A, B, Q, R)
     #cost = quad_form(s[:,t+1] - s_ref[:,t+1], Q_f)
     #states.append(Problem(Minimize(cost), constr))
 
@@ -113,8 +119,9 @@ def solve_optimization_problem(num_states, num_inputs, horizon, A, B, Q, R, s_0,
     prob = sum(states)
 
     # Terminal constraint with slack variables
-    #prob.constraints += [s[:,horizon] <= s_ref[:,horizon] + np.matrix([[1],[1],[np.pi/2]])]
-    #prob.constraints += [s[:,horizon] >= s_ref[:,horizon] - np.matrix([[0.5],[0.5],[1]])]
+    #slack = np.matrix([[1],[1],[np.pi/2]])
+    #prob.constraints += [s[:,horizon] <= s_ref[:,horizon] + slack]
+    #prob.constraints += [s[:,horizon] >= s_ref[:,horizon] - slack]
 
     # Initial conditions constraint
     prob.constraints += [s[:,0] == s_0]
@@ -133,10 +140,17 @@ def solve_optimization_problem(num_states, num_inputs, horizon, A, B, Q, R, s_0,
 #-------------------------------------------------------------------------------
 def callback(data):
 
-    global N, Q_x, Q_y, Q_v, Q_psi, R_v, R_delta, previous_input
+    global N, Q_x, Q_y, Q_v, Q_psi, R_v, R_delta, previous_input, timestamp_last_message
 
-    # The horizon
-    #N = 4
+    # Update the (not necessarily constant) sampling time
+    if timestamp_last_message == None:
+        exec_time = 0.1
+    else:
+        exec_time =  rospy.Time.now() - timestamp_last_message
+        exec_time = exec_time.to_sec()
+        rospy.loginfo('Execution time = ' + str(exec_time) + ' sec')
+
+    timestamp_last_message = rospy.Time.now()
 
 
     # Unpack message
@@ -181,7 +195,9 @@ def callback(data):
     #Q = np.matrix([[100, 0, 0], [0, 100, 0], [0, 0, 150]])
     #R = np.matrix([[500]])
 
+
     Q = np.matrix([[Q_x, 0, 0], [0, Q_y, 0], [0, 0, Q_psi]])
+
     R = np.matrix([[R_delta]])
 
     # Initial conditions
@@ -197,17 +213,23 @@ def callback(data):
     s_ref = np.append(s_ref, refs_y_matrix, axis=0)
     s_ref = np.append(s_ref, refs_psi_matrix, axis=0)
 
-    rospy.loginfo(str(s_ref))
+    #rospy.loginfo(str(s_ref))
 
 
     # Solve the optimization problem
     optimum_input = solve_optimization_problem(3, 1, N, A, B, Q, R, s_0, s_ref)
 
     if optimum_input is None:
-        optimum_input = 0
+        optimum_input = previous_input
         rospy.loginfo('INVALID STEERING')
 
-    optimum_input = optimum_input
+    # MOCAP blind spot: when mocap loses the car, its steering goes to 0.0,
+    # therefore, if this happens, keep momentarily the same steering angle.
+    # In practice this makes the difference between a circular and an
+    # elliptic trajectory
+    if optimum_input == 0.0:
+        optimum_input = previous_input
+
 
 
     # Pack the message to be sent to the serial_transmitter node

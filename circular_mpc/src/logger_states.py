@@ -20,7 +20,8 @@ def callback(data):
     store_file = open(u'/home/li9i/circular_mpc_states_log.csv','ab')
 
     writer = csv.writer(store_file)
-    writer.writerow([data.x, data.y, data.v, data.psi])
+    writer.writerow([data.x, data.y, data.v, data.psi,
+        data.refs_x[0], data.refs_y[0], data.refs_v[0], data.refs_psi[0]])
 
     store_file.close()
 

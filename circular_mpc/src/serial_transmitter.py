@@ -36,7 +36,7 @@ def callback(data):
     angle = data.angle
     print("Velocity: ", velocity, "Angle: ", angle)
 
-    angle = angle - 6*np.pi/180
+    angle = angle - np.radians(6)
 
     # Do the computation
     pwm1 = arduino_map(velocity,-100,100,6554,13108);

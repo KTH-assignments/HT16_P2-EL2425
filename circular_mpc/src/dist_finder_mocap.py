@@ -36,9 +36,9 @@ previous_y = None
 # callbacks
 timestamp_last_message = None
 
-# The horizon. Make sure that the same number is in the predictive
-# controller script
-N = 10
+# The horizon. Make sure that this number is larger than the horizon
+# in the predictive controller script
+N = 20
 
 
 # Given the coordinates of a point (in this case the vehicle V) at x_v and y_v,
@@ -155,10 +155,8 @@ def callback(state):
 
     for i in range(1,N+2):
 
-        if np.radians(state.yaw) >= 0 and np.radians(state.yaw) <= np.pi:
-
-            if ref_point[2] < 0:
-                ref_point[2] = ref_point[2] + 2*np.pi
+        if np.radians(state.yaw) > 0 and ref_point[2] < 0:
+            ref_point[2] = ref_point[2] + 2*np.pi
 
         t = ref_point[2] + vel / circle_r * ts * i
 

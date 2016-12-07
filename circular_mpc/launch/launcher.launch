@@ -8,9 +8,7 @@
 
 	<node name="serial_transmitter_node"    pkg="circular_mpc" type="serial_transmitter.py" />
 
-  <!--
 	<node name="logger_states_node"         pkg="circular_mpc" type="logger_states.py" />
 	<node name="logger_inputs_node"         pkg="circular_mpc" type="logger_inputs.py" />
-  -->
 
 </launch>
