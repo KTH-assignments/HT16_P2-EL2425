@@ -24,9 +24,6 @@ circle_x_0 = circle_center_and_radius[0]
 circle_y_0 = circle_center_and_radius[1]
 circle_r = circle_center_and_radius[2]
 
-# Previous reference point on the circular trajectory
-previous_ref_point = None
-
 # The coordinates of the vehicle at the previous sampling time
 previous_x = None
 previous_y = None
@@ -41,10 +38,12 @@ timestamp_last_message = None
 N = 20
 
 
+#-------------------------------------------------------------------------------
 # Given the coordinates of a point (in this case the vehicle V) at x_v and y_v,
 # and the coordinates of the center (x_c, y_c) of a circle and its radius (r),
 # find point X where the tangent at point X passes through point V
 # For visualization see http://jsfiddle.net/zxqCw/1/
+#-------------------------------------------------------------------------------
 def get_tangent_point(x_v, y_v, x_c, y_c, r):
     dx = x_v - x_c
     dy = y_v - y_c
@@ -76,18 +75,76 @@ def get_tangent_point(x_v, y_v, x_c, y_c, r):
 
 
 #-------------------------------------------------------------------------------
+# A function to get the reference points for the optimization problem
+#-------------------------------------------------------------------------------
+def get_reference_points(state, ts, method):
+
+    min_dist = 1000.0
+    ref_point = None
+
+    # The array of references. Each is a separate point on the circle,
+    # each ahead from the previous, starting from ref_point.
+    # These will be the points the vehicle will have to plan to pass while
+    # running the prediction equations
+    refs_x = []
+    refs_y = []
+    refs_v = []
+    refs_psi = []
+
+
+    # Tangent method
+    if method == 1:
+        # Find the point that connects the vehicle to the circle.
+        # This point is tangent to the circle, and this tangent passes through
+        # the position of the vehicle.
+        tan_point_list = get_tangent_point(state.x, state.y, circle_x_0, circle_y_0, circle_r)
+
+        point_x = tan_point_list[0]
+        point_y = tan_point_list[1]
+    # min method
+    elif method == 2:
+        point_x = state.x
+        point_y = state.y
+
+
+    # Find the closest trajectory point
+    for point in circle:
+        dist = np.sqrt((point_x - point[0])**2 + (point_y - point[1])**2)
+        if dist < min_dist:
+            min_dist = dist
+            ref_point = point
+
+
+    # Find the references on the circle.
+    # The initial point is excluded.
+    for i in range(1,N+2):
+
+        if state.psi > 0 and ref_point[2] < 0:
+            ref_point[2] = ref_point[2] + 2*np.pi
+
+        t = ref_point[2] + state.v / circle_r * ts * i
+
+        x = circle_x_0 + circle_r * np.cos(t - np.pi/2)
+        y = circle_y_0 + circle_r * np.sin(t - np.pi/2)
+
+        refs_x.append(x)
+        refs_y.append(y)
+        refs_v.append(state.v)
+        refs_psi.append(t)
+
+
+    return list([refs_x, refs_y, refs_v, refs_psi])
+
+
+#-------------------------------------------------------------------------------
 # callback
 #
 # INPUT:
 #   state: measurements derived from mocap
 #-------------------------------------------------------------------------------
 def callback(state):
-    min_dist = 1000.0
-    ref_point = None
-    min_index = None
 
-    global circle
-    global previous_ref_point
+
     global previous_x
     global previous_y
     global timestamp_last_message
@@ -102,30 +159,6 @@ def callback(state):
 
     timestamp_last_message = rospy.Time.now()
 
-    # Find the point that connects the vehicle to the circle.
-    # This point is tangent to the circle, and this tangent passes through
-    # the position of the vehicle.
-    tan_point_list = get_tangent_point(state.x, state.y, circle_x_0, circle_y_0, circle_r)
-
-    tan_point_x = tan_point_list[0]
-    tan_point_y = tan_point_list[1]
-
-
-    # Find the closest trajectory point
-    for point in circle:
-        dist = np.sqrt((tan_point_x - point[0])**2 + (tan_point_y - point[1])**2)
-        if dist < min_dist:
-            min_dist = dist
-            ref_point = point
-
-
-    # The index of the reference point in the circle list
-    min_index = circle.index(ref_point)
-
-    #if previous_ref_point is not None:
-        #if ref_point[3] < previous_ref_point[3]:
-            #circle[min_index][3] = circle[min_index][3] + 2*np.pi
-            #ref_point[3] = ref_point[3] + 2*np.pi
 
     # MEASURE the velocity of the vehicle. Ideally this would come from a
     # Kalman filter.
@@ -143,30 +176,22 @@ def callback(state):
     msg.psi = np.radians(state.yaw)
     msg.v = vel
 
+    # The method for finding the point on which the references
+    # will be built upon.
+    method = 1
+
+    # Find the references
+    refs_list = get_reference_points(msg, ts, method)
 
     # The array of references. Each is a separate point on the circle,
     # each ahead from the previous, starting from ref_point.
     # These will be the points the vehicle will have to plan to pass while
     # running the prediction equations
-    refs_x = []
-    refs_y = []
-    refs_v = []
-    refs_psi = []
+    refs_x = refs_list[0]
+    refs_y = refs_list[1]
+    refs_v = refs_list[2]
+    refs_psi = refs_list[3]
 
-    for i in range(1,N+2):
-
-        if np.radians(state.yaw) > 0 and ref_point[2] < 0:
-            ref_point[2] = ref_point[2] + 2*np.pi
-
-        t = ref_point[2] + vel / circle_r * ts * i
-
-        x = circle_x_0 + circle_r * np.cos(t - np.pi/2)
-        y = circle_y_0 + circle_r * np.sin(t - np.pi/2)
-
-        refs_x.append(x)
-        refs_y.append(y)
-        refs_v.append(vel)
-        refs_psi.append(t)
 
     msg.refs_x = refs_x
     msg.refs_y = refs_y
@@ -177,7 +202,6 @@ def callback(state):
 
     pub.publish(msg)
 
-    previous_ref_point = ref_point
     previous_x = state.x
     previous_y = state.y
 

@@ -91,10 +91,10 @@ def terminal_cost_penalty(A, B, Q ,R):
 
 
 #-------------------------------------------------------------------------------
-# Solves the optimization problem.
-# Returns the optimum input.
+# Solves the optimization problem for invariant A and B matrices.
+# Returns the optimum input sequence.
 #-------------------------------------------------------------------------------
-def solve_optimization_problem(num_states, num_inputs, horizon, A, B, Q, R, s_0, s_ref):
+def solve_optimization_problem_invariant(num_states, num_inputs, horizon, A, B, Q, R, s_0, s_ref):
 
     s = Variable(num_states, horizon + 1)
     u = Variable(num_inputs, horizon)
@@ -129,9 +129,84 @@ def solve_optimization_problem(num_states, num_inputs, horizon, A, B, Q, R, s_0,
     prob.solve(solver=CVXOPT)
     #prob.solve()
 
-    ret_value = u[0].value
+    #ret_value = u[0].value
 
-    return ret_value
+    ret_list = []
+
+    for i in range(0, horizon):
+        ret_list.append(u[i].value)
+
+    return ret_list
+
+
+#-------------------------------------------------------------------------------
+# Solves the optimization problem.
+# Returns the optimum input.
+#-------------------------------------------------------------------------------
+def solve_optimization_problem(num_states, num_inputs, horizon, A, B, Q, R, s_0, s_ref):
+
+    s = Variable(num_states, horizon + 1)
+    u = Variable(num_inputs, horizon)
+
+    states = []
+    for t in range(horizon):
+        cost = quad_form(s[:,t] - s_ref[:,t], Q) + quad_form(u[t], R)
+
+        constr = [s[:,t+1] == A[t]*s[:,t] + B[t]*u[t],
+                u[t] >= -np.pi / 3,
+                u[t] <= np.pi / 3]
+
+        states.append(Problem(Minimize(cost), constr))
+
+
+    # Add terminal cost
+#    Q_f = terminal_cost_penalty(A, B, Q, R)
+    #cost = quad_form(s[:,t+1] - s_ref[:,t+1], Q_f)
+    #states.append(Problem(Minimize(cost), constr))
+
+    # sum problem objectives and concatenate constraints.
+    prob = sum(states)
+
+    # Terminal constraint with slack variables
+    #slack = np.matrix([[1],[1],[np.pi/2]])
+    #prob.constraints += [s[:,horizon] <= s_ref[:,horizon] + slack]
+    #prob.constraints += [s[:,horizon] >= s_ref[:,horizon] - slack]
+
+    # Initial conditions constraint
+    prob.constraints += [s[:,0] == s_0]
+
+    prob.solve(solver=CVXOPT)
+
+    return u[0].value
+
+
+
+#-------------------------------------------------------------------------------
+# given states x,y,psi, matrices A and B and a sequence of inputs,
+# this function returns the sequence of x,y and psi states
+#-------------------------------------------------------------------------------
+def get_predicted_states(x, y, psi, A, B, inputs):
+
+    X = []
+    Y = []
+    Psi = []
+
+    for i in range(0, len(inputs)):
+        x = A[0,0] * x + A[0,1]*y + A[0,2]*psi + B[0]*inputs[i]
+        y = A[1,0] * x + A[1,1]*y + A[1,2]*psi + B[1]*inputs[i]
+        psi = A[2,0] * x + A[2,1]*y + A[2,2]*psi + B[2]*inputs[i]
+
+        X.append(x)
+        Y.append(y)
+        Psi.append(psi)
+
+
+    ret_list = []
+    ret_list.append(X)
+    ret_list.append(Y)
+    ret_list.append(Psi)
+
+    return ret_list
 
 
 
@@ -180,11 +255,11 @@ def callback(data):
     rospy.loginfo('--')
 
 
-    # The model's matrices are time-variant. Calculate them.
+    # The model's matrices linearized around the current orientation
     matrices = get_model_matrices(psi, v, ts)
 
-    A = matrices[0]
-    B = matrices[1]
+    A_0 = matrices[0]
+    B_0 = matrices[1]
 
 
     # Penalty matrices
@@ -213,10 +288,24 @@ def callback(data):
     s_ref = np.append(s_ref, refs_y_matrix, axis=0)
     s_ref = np.append(s_ref, refs_psi_matrix, axis=0)
 
-    #rospy.loginfo(str(s_ref))
+
+    # Solve the optimization problem once, to obtain the predicted states.
+    predicted_inputs = solve_optimization_problem_invariant(3, 1, N, A_0, B_0, Q, R, s_0, s_ref)
+
+    # Obtain the predicted states, given the sequence of predicted optimal inputs
+    predicted_states = get_predicted_states(x,y,psi, A_0, B_0, predicted_inputs)
+
+    A = [A_0]
+    B = [B_0]
+
+    for i in range(0, len(predicted_inputs)):
+
+        ab_list = get_model_matrices(predicted_states[2][i], v, ts)
+        A.append(ab_list[0])
+        B.append(ab_list[1])
 
 
-    # Solve the optimization problem
+    # Solve the optimization problem with the list of time-variant A's and B's
     optimum_input = solve_optimization_problem(3, 1, N, A, B, Q, R, s_0, s_ref)
 
     if optimum_input is None:

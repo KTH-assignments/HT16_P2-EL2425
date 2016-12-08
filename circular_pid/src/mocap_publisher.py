@@ -10,7 +10,7 @@ from mocap_source_2 import Mocap, Body
 from slip_control_communications.msg import mocap_data
 
 mocap = Mocap(host='SML', info=1)
-truck_id = mocap.get_id_from_name("F1TenthA")
+truck_id = mocap.get_id_from_name("F1TenthB")
 
 #-------------------------------------------------------------------------------
 # talker
