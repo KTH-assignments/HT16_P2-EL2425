@@ -185,26 +185,22 @@ def solve_optimization_problem(num_states, num_inputs, horizon, A, B, Q, R, s_0,
 # given states x,y,psi, matrices A and B and a sequence of inputs,
 # this function returns the sequence of x,y and psi states
 #-------------------------------------------------------------------------------
-def get_predicted_states(x, y, psi, A, B, inputs):
+def get_predicted_states(x_0, y_0, psi_0, A, B, inputs):
 
-    X = []
-    Y = []
-    Psi = []
+    x = [x_0]
+    y = [y_0]
+    psi = [psi_0]
 
     for i in range(0, len(inputs)):
-        x = A[0,0] * x + A[0,1] * y + A[0,2] * psi + B[0] * inputs[i]
-        y = A[1,0] * x + A[1,1] * y + A[1,2] * psi + B[1] * inputs[i]
-        psi = A[2,0] * x + A[2,1] * y + A[2,2] * psi + B[2] * inputs[i]
-
-        X.append(x)
-        Y.append(y)
-        Psi.append(psi)
+        x.append(A[0,0] * x[i] + A[0,1] * y[i] + A[0,2] * psi[i] + B[0,0] * inputs[i])
+        y.append(A[1,0] * x[i] + A[1,1] * y[i] + A[1,2] * psi[i] + B[1,0] * inputs[i])
+        psi.append(A[2,0] * x[i] + A[2,1] * y[i] + A[2,2] * psi[i] + B[2,0] * inputs[i])
 
 
     ret_list = []
-    ret_list.append(X)
-    ret_list.append(Y)
-    ret_list.append(Psi)
+    ret_list.append(x[1:len(x)])
+    ret_list.append(y[1:len(y)])
+    ret_list.append(psi[1:len(psi)])
 
     return ret_list
 
