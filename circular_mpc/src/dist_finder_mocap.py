@@ -35,7 +35,7 @@ timestamp_last_message = None
 
 # The horizon. Make sure that this number is larger than the horizon
 # in the predictive controller script
-N = 20
+N = 2
 
 
 #-------------------------------------------------------------------------------
@@ -50,7 +50,7 @@ def get_tangent_point(x_v, y_v, x_c, y_c, r):
     dd = np.sqrt(dx**2 + dy**2)
 
 
-    # The vehicle is outside the circle
+    # The vehicle is outside or on the circle
     if dd >= r:
 
         a = np.arcsin(r / dd)
@@ -107,7 +107,7 @@ def get_reference_points(state, ts, method):
         point_y = state.y
 
 
-    # Find the closest trajectory point
+    # Find the closest point that lies ON the trajectory
     for point in circle:
         dist = np.sqrt((point_x - point[0])**2 + (point_y - point[1])**2)
         if dist < min_dist:
@@ -117,12 +117,12 @@ def get_reference_points(state, ts, method):
 
     # Find the references on the circle.
     # The initial point is excluded.
-    for i in range(1,N+2):
+    for i in range(0,N+1):
 
         if state.psi > 0 and ref_point[2] < 0:
             ref_point[2] = ref_point[2] + 2*np.pi
 
-        t = ref_point[2] + state.v / circle_r * ts * i
+        t = ref_point[2] + np.arctan(state.v / circle_r * ts * i)
 
         x = circle_x_0 + circle_r * np.cos(t - np.pi/2)
         y = circle_y_0 + circle_r * np.sin(t - np.pi/2)
@@ -131,6 +131,7 @@ def get_reference_points(state, ts, method):
         refs_y.append(y)
         refs_v.append(state.v)
         refs_psi.append(t)
+
 
 
     return list([refs_x, refs_y, refs_v, refs_psi])
@@ -144,7 +145,6 @@ def get_reference_points(state, ts, method):
 #-------------------------------------------------------------------------------
 def callback(state):
 
-
     global previous_x
     global previous_y
     global timestamp_last_message
@@ -155,7 +155,6 @@ def callback(state):
     else:
         ts =  rospy.Time.now() - timestamp_last_message
         ts = ts.to_sec()
-
 
     timestamp_last_message = rospy.Time.now()
 
@@ -176,7 +175,7 @@ def callback(state):
     msg.psi = np.radians(state.yaw)
     msg.v = vel
 
-    # The method for finding the point on which the references
+    # The method for finding the point which the references
     # will be built upon.
     method = 1
 
@@ -187,16 +186,10 @@ def callback(state):
     # each ahead from the previous, starting from ref_point.
     # These will be the points the vehicle will have to plan to pass while
     # running the prediction equations
-    refs_x = refs_list[0]
-    refs_y = refs_list[1]
-    refs_v = refs_list[2]
-    refs_psi = refs_list[3]
-
-
-    msg.refs_x = refs_x
-    msg.refs_y = refs_y
-    msg.refs_v = refs_v
-    msg.refs_psi = refs_psi
+    msg.refs_x = refs_list[0]
+    msg.refs_y = refs_list[1]
+    msg.refs_v = refs_list[2]
+    msg.refs_psi = refs_list[3]
 
     msg.ts = ts
 

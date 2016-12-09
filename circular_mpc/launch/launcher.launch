@@ -2,7 +2,7 @@
 
 	<node name="mocap_publisher_node"       pkg="circular_mpc" type="mocap_publisher.py" />
 
-	<node name="dist_finder_mocap_node"     pkg="circular_mpc" type="dist_finder_mocap.py" />
+	<node name="dist_finder_mocap_node"     pkg="circular_mpc" type="dist_finder_mocap.py" output="screen"/>
 
 	<node name="predictive_controller_node" pkg="circular_mpc" type="predictive_controller.py" output="screen"/>
 

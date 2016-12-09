@@ -8,13 +8,14 @@ import rospy
 from dynamic_reconfigure.server import Server
 from circular_mpc.cfg import circular_mpcConfig
 
-
 import math
 import numpy as np
 from numpy import tan
 
 from cvxpy import *
 import scipy.linalg
+import matplotlib.pyplot as plt
+
 from slip_control_communications.msg import pose_and_references
 from slip_control_communications.msg import input_model
 
@@ -48,19 +49,22 @@ timestamp_last_message = None
 #-------------------------------------------------------------------------------
 def get_model_matrices(psi, v, ts):
 
-    beta = np.arctan(l_q * np.tan(previous_input));
-    p = l_q / (l_q**2 * np.sin(previous_input)**2 + np.cos(previous_input)**2);
+    beta = np.arctan(l_q * np.tan(previous_input))
+    p = l_q / (l_q**2 * np.sin(previous_input)**2 + np.cos(previous_input)**2)
 
     matrices = []
+
+    factor_sin = ts * v * np.sin(psi + beta)
+    factor_cos = ts * v * np.cos(psi + beta)
 
     # A
     A_11 = 1
     A_12 = 0
-    A_13 = -ts * v * np.sin(psi + beta)
+    A_13 = -factor_sin
 
     A_21 = 0
     A_22 = 1
-    A_23 = ts * v * np.cos(psi + beta)
+    A_23 = factor_cos
 
     A_31 = 0
     A_32 = 0
@@ -69,8 +73,8 @@ def get_model_matrices(psi, v, ts):
     A = np.matrix([[A_11, A_12, A_13], [A_21, A_22, A_23], [A_31, A_32, A_33]])
 
     # B
-    B_11 = -ts * v * np.sin(psi + beta) * p
-    B_21 = ts * v * np.cos(psi + beta) * p
+    B_11 = -factor_sin * p
+    B_21 = factor_cos * p
     B_31 = ts * v / l_r * np.cos(beta) * p
 
     B = np.matrix([[B_11], [B_21], [B_31]])
@@ -127,12 +131,8 @@ def solve_optimization_problem_invariant(num_states, num_inputs, horizon, A, B, 
     prob.constraints += [s[:,0] == s_0]
 
     prob.solve(solver=CVXOPT)
-    #prob.solve()
-
-    #ret_value = u[0].value
 
     ret_list = []
-
     for i in range(0, horizon):
         ret_list.append(u[i].value)
 
@@ -192,9 +192,9 @@ def get_predicted_states(x, y, psi, A, B, inputs):
     Psi = []
 
     for i in range(0, len(inputs)):
-        x = A[0,0] * x + A[0,1]*y + A[0,2]*psi + B[0]*inputs[i]
-        y = A[1,0] * x + A[1,1]*y + A[1,2]*psi + B[1]*inputs[i]
-        psi = A[2,0] * x + A[2,1]*y + A[2,2]*psi + B[2]*inputs[i]
+        x = A[0,0] * x + A[0,1] * y + A[0,2] * psi + B[0] * inputs[i]
+        y = A[1,0] * x + A[1,1] * y + A[1,2] * psi + B[1] * inputs[i]
+        psi = A[2,0] * x + A[2,1] * y + A[2,2] * psi + B[2] * inputs[i]
 
         X.append(x)
         Y.append(y)
@@ -209,7 +209,6 @@ def get_predicted_states(x, y, psi, A, B, inputs):
     return ret_list
 
 
-
 #-------------------------------------------------------------------------------
 # callback
 #-------------------------------------------------------------------------------
@@ -217,7 +216,7 @@ def callback(data):
 
     global N, Q_x, Q_y, Q_v, Q_psi, R_v, R_delta, previous_input, timestamp_last_message
 
-    # Update the (not necessarily constant) sampling time
+    # Update the execution time
     if timestamp_last_message == None:
         exec_time = 0.1
     else:
@@ -251,11 +250,17 @@ def callback(data):
     rospy.loginfo('s_0(psi): ' + str(psi * 180 / np.pi))
     rospy.loginfo('s_ref(psi): ' + str(refs_psi[0] * 180 / np.pi))
     rospy.loginfo('--')
+    rospy.loginfo('s_0(v): ' + str(refs_v[0]))
+    rospy.loginfo('--')
     rospy.loginfo('ts: ' + str(ts))
     rospy.loginfo('--')
 
 
+    #rospy.loginfo(str(refs_x))
+    #rospy.loginfo(str(refs_y))
+
     # The model's matrices linearized around the current orientation
+    # of the vehicle
     matrices = get_model_matrices(psi, v, ts)
 
     A_0 = matrices[0]
@@ -289,18 +294,24 @@ def callback(data):
     s_ref = np.append(s_ref, refs_psi_matrix, axis=0)
 
 
-    # Solve the optimization problem once, to obtain the predicted states.
+    # Solve the optimization problem once, to obtain the predicted inputs.
+    # These will give us access to the predicted states.
     predicted_inputs = solve_optimization_problem_invariant(3, 1, N, A_0, B_0, Q, R, s_0, s_ref)
 
     # Obtain the predicted states, given the sequence of predicted optimal inputs
-    predicted_states = get_predicted_states(x,y,psi, A_0, B_0, predicted_inputs)
+    predicted_states = get_predicted_states(x, y, psi, A_0, B_0, predicted_inputs)
 
+    # Obtain the A and B matrices that correspond to each predicted state
+    # of the vehicle. These are needed while iterating through the prediction
+    # equations in the optimization problem.
     A = [A_0]
     B = [B_0]
 
     for i in range(0, len(predicted_inputs)):
 
+        # or maybe refs_psi[i]: linearize around the reference orientation
         ab_list = get_model_matrices(predicted_states[2][i], v, ts)
+
         A.append(ab_list[0])
         B.append(ab_list[1])
 
@@ -332,6 +343,22 @@ def callback(data):
 
     # Store the input for the next timestep (needed in calculation of beta)
     previous_input = optimum_input
+
+
+    # Plot trajectory, references, predicted states
+
+#    plt.ion()
+    #plt.plot(x, y, '*')
+    ##plt.plot(refs_x[0], refs_y[0], '.')
+    #for i in range(0, len(predicted_states[0])):
+        #plt.plot(predicted_states[0][i], predicted_states[1][i], '.')
+
+    #plt.axis([-3,3,-3,3])
+    #plt.axis('equal')
+
+    #plt.draw()
+
+    #plt.pause(0.0001)
 
 
 
