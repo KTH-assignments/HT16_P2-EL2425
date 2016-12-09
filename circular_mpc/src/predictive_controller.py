@@ -6,7 +6,7 @@ Node to solve a mpc optimization problem
 
 import rospy
 from dynamic_reconfigure.server import Server
-from circular_mpc.cfg import circular_mpcConfig
+from circular_mpc.cfg import predictive_controllerConfig
 
 import math
 import numpy as np
@@ -387,5 +387,5 @@ if __name__ == '__main__':
     rospy.loginfo("[Node] predictive_controller_node started")
 
     rospy.Subscriber("pose_and_references_topic", pose_and_references, callback, queue_size=1)
-    dynamic_reconfigure_server = Server(circular_mpcConfig, dynamic_reconfigure_callback)
+    dynamic_reconfigure_server = Server(predictive_controllerConfig, dynamic_reconfigure_callback)
     rospy.spin()

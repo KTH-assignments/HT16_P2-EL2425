@@ -18,6 +18,7 @@ find_package(catkin REQUIRED COMPONENTS
 
 generate_dynamic_reconfigure_options(
   cfg/config.cfg
+  cfg/configFinder.cfg
 )
 
 ## System dependencies are found with CMake's conventions

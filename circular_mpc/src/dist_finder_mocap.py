@@ -7,7 +7,12 @@ Node to determine deviation from trajectory.
 import rospy
 import numpy as np
 import std_msgs
+
+from dynamic_reconfigure.server import Server
+from circular_mpc.cfg import dist_finder_mocapConfig
+
 from trajectory_planner import Path
+
 from slip_control_communications.msg import pose_and_references
 from slip_control_communications.msg import mocap_data
 
@@ -122,7 +127,7 @@ def get_reference_points(state, ts, method):
         if state.psi > 0 and ref_point[2] < 0:
             ref_point[2] = ref_point[2] + 2*np.pi
 
-        t = ref_point[2] + np.arctan(state.v / circle_r * ts * i)
+        t = ref_point[2] + np.arctan(state.v / circle_r * ts * i * H)
 
         x = circle_x_0 + circle_r * np.cos(t - np.pi/2)
         y = circle_y_0 + circle_r * np.sin(t - np.pi/2)
@@ -199,6 +204,19 @@ def callback(state):
     previous_y = state.y
 
 
+
+#-------------------------------------------------------------------------------
+# Callback for dynamically reconfigurable parameters
+#-------------------------------------------------------------------------------
+def dynamic_reconfigure_callback(config, level):
+
+    global H
+
+    H = config.H
+
+    return config
+
+
 #-------------------------------------------------------------------------------
 # main
 #-------------------------------------------------------------------------------
@@ -207,4 +225,5 @@ if __name__ == '__main__':
     rospy.loginfo("[Node] dist_finder_mocap_node started")
 
     rospy.Subscriber("car_state_topic", mocap_data, callback, queue_size=1)
+    dynamic_reconfigure_server = Server(dist_finder_mocapConfig, dynamic_reconfigure_callback)
     rospy.spin()
