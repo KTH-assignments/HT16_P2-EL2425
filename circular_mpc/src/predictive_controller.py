@@ -43,28 +43,28 @@ previous_input = 0
 # callbacks
 timestamp_last_message = None
 
+linearize_around_state = False
 
 #-------------------------------------------------------------------------------
 # Extracts the A, B matrices of a reduced order kinematic model
 #-------------------------------------------------------------------------------
 def get_model_matrices(psi, v, ts):
 
+
     beta = np.arctan(l_q * np.tan(previous_input))
+
     p = l_q / (l_q**2 * np.sin(previous_input)**2 + np.cos(previous_input)**2)
 
     matrices = []
 
-    factor_sin = ts * v * np.sin(psi + beta)
-    factor_cos = ts * v * np.cos(psi + beta)
-
     # A
     A_11 = 1
     A_12 = 0
-    A_13 = -factor_sin
+    A_13 = -ts * v * np.sin(psi + beta)
 
     A_21 = 0
     A_22 = 1
-    A_23 = factor_cos
+    A_23 = ts * v * np.cos(psi + beta)
 
     A_31 = 0
     A_32 = 0
@@ -73,8 +73,8 @@ def get_model_matrices(psi, v, ts):
     A = np.matrix([[A_11, A_12, A_13], [A_21, A_22, A_23], [A_31, A_32, A_33]])
 
     # B
-    B_11 = -factor_sin * p
-    B_21 = factor_cos * p
+    B_11 = -ts * v * np.sin(psi + beta) * p
+    B_21 = ts * v * np.cos(psi + beta) * p
     B_31 = ts * v / l_r * np.cos(beta) * p
 
     B = np.matrix([[B_11], [B_21], [B_31]])
@@ -107,9 +107,7 @@ def solve_optimization_problem_invariant(num_states, num_inputs, horizon, A, B, 
     for t in range(horizon):
         cost = quad_form(s[:,t] - s_ref[:,t], Q) + quad_form(u[t], R)
 
-        constr = [s[:,t+1] == A*s[:,t] + B*u[t],
-                u[t] >= -np.pi / 3,
-                u[t] <= np.pi / 3]
+        constr = [s[:,t+1] == A*s[:,t] + B*u[t]]
 
         states.append(Problem(Minimize(cost), constr))
 
@@ -162,9 +160,7 @@ def solve_optimization_problem(num_states, num_inputs, horizon, A, B, Q, R, s_0,
     for t in range(horizon):
         cost = quad_form(s[:,t] - s_ref[:,t], Q) + quad_form(u[t], R)
 
-        constr = [s[:,t+1] == A[t]*s[:,t] + B[t]*u[t],
-                u[t] >= -np.pi / 3,
-                u[t] <= np.pi / 3]
+        constr = [s[:,t+1] == A[t]*s[:,t] + B[t]*u[t]]
 
         states.append(Problem(Minimize(cost), constr))
 
@@ -187,33 +183,21 @@ def solve_optimization_problem(num_states, num_inputs, horizon, A, B, Q, R, s_0,
 
     prob.solve(solver=CVXOPT)
 
-    return u[0].value
-
-
-
-#-------------------------------------------------------------------------------
-# given states x,y,psi, matrices A and B and a sequence of inputs,
-# this function returns the sequence of x,y and psi states
-#-------------------------------------------------------------------------------
-def get_predicted_states(x_0, y_0, psi_0, A, B, inputs):
-
-    x = [x_0]
-    y = [y_0]
-    psi = [psi_0]
-
-    for i in range(0, len(inputs)):
-        x.append(A[0,0] * x[i] + A[0,1] * y[i] + A[0,2] * psi[i] + B[0,0] * inputs[i])
-        y.append(A[1,0] * x[i] + A[1,1] * y[i] + A[1,2] * psi[i] + B[1,0] * inputs[i])
-        psi.append(A[2,0] * x[i] + A[2,1] * y[i] + A[2,2] * psi[i] + B[2,0] * inputs[i])
-
-
+    # Return the sequence of optimal inputs and according predicted states.
     ret_list = []
-    ret_list.append(x[1:len(x)])
-    ret_list.append(y[1:len(y)])
-    ret_list.append(psi[1:len(psi)])
+    list_u = []
+    list_s = []
+    for i in range(0, horizon):
+        list_u.append(u[i].value)
+        list_s.append(s[:,i])
+
+    list_s.append(s[:,horizon])
+
+    ret_list.append(list_u)
+    ret_list.append(list_s)
+
 
     return ret_list
-
 
 
 #-------------------------------------------------------------------------------
@@ -221,7 +205,7 @@ def get_predicted_states(x_0, y_0, psi_0, A, B, inputs):
 #-------------------------------------------------------------------------------
 def callback(data):
 
-    global N, Q_x, Q_y, Q_v, Q_psi, R_v, R_delta, previous_input, timestamp_last_message
+    global previous_input, timestamp_last_message
 
     # Update the execution time
     if timestamp_last_message == None:
@@ -263,16 +247,10 @@ def callback(data):
     rospy.loginfo('--')
 
 
-    #rospy.loginfo(str(refs_x))
-    #rospy.loginfo(str(refs_y))
-
-    # The model's matrices linearized around the current orientation
-    # of the vehicle
-    matrices = get_model_matrices(psi, v, ts)
-
-    A_0 = matrices[0]
-    B_0 = matrices[1]
-
+    rospy.loginfo('-- REFERENCES --')
+    rospy.loginfo(str(refs_x))
+    rospy.loginfo(str(refs_y))
+    rospy.loginfo(str(refs_psi))
 
     # Penalty matrices
     #Q = np.matrix([[100, 0, 0], [0, 100, 0], [0, 0, 150]])
@@ -290,47 +268,93 @@ def callback(data):
     # Initial conditions
     s_0 = np.matrix([[x], [y], [psi]])
 
-    # References. Consider the refs_XXX lists as columns and append them
-    # in the appropriate order
-    refs_x_matrix = np.matrix(refs_x)
-    refs_y_matrix = np.matrix(refs_y)
-    refs_psi_matrix = np.matrix(refs_psi)
+    # Linearize around the current state
+    if linearize_around_state == True:
 
-    s_ref = np.matrix(refs_x_matrix)
-    s_ref = np.append(s_ref, refs_y_matrix, axis=0)
-    s_ref = np.append(s_ref, refs_psi_matrix, axis=0)
+        # References. Consider the refs_XXX lists as columns and append them
+        # in the appropriate order
+        refs_x_matrix = np.matrix(refs_x)
+        refs_y_matrix = np.matrix(refs_y)
+        refs_psi_matrix = np.matrix(refs_psi)
 
+        s_ref = np.matrix(refs_x_matrix)
+        s_ref = np.append(s_ref, refs_y_matrix, axis=0)
+        s_ref = np.append(s_ref, refs_psi_matrix, axis=0)
 
-    # Solve the optimization problem once, to obtain the predicted inputs.
-    # These will give us access to the predicted states.
-    predicted_inputs_and_states = solve_optimization_problem_invariant(3, 1, N, A_0, B_0, Q, R, s_0, s_ref)
+        # The model's matrices linearized around the current orientation
+        # of the vehicle
+        matrices = get_model_matrices(psi, v, ts)
 
-    predicted_inputs = predicted_inputs_and_states[0]
-
-    # Obtain the predicted states, given the sequence of predicted optimal inputs
-    predicted_states = predicted_inputs_and_states[1]
-
-    # Obtain the A and B matrices that correspond to each predicted state
-    # of the vehicle. These are needed while iterating through the prediction
-    # equations in the optimization problem.
-    A = [A_0]
-    B = [B_0]
-
-    for i in range(0, len(predicted_states)):
-
-        # or maybe refs_psi[i]: linearize around the reference orientation
-        ab_list = get_model_matrices(predicted_states[i].value[2], v, ts)
-
-        A.append(ab_list[0])
-        B.append(ab_list[1])
+        A_0 = matrices[0]
+        B_0 = matrices[1]
 
 
-    # Solve the optimization problem with the list of time-variant A's and B's
-    optimum_input = solve_optimization_problem(3, 1, N, A, B, Q, R, s_0, s_ref)
+        # Solve the optimization problem once, to obtain the predicted inputs.
+        # These will give us access to the predicted states.
+        predicted_inputs_and_states_invariant = solve_optimization_problem_invariant(3, 1, N, A_0, B_0, Q, R, s_0, s_ref)
+
+        # Obtain the sequence of optimal inputs
+        predicted_inputs_invariant = predicted_inputs_and_states_invariant[0]
+
+        # Obtain the predicted states, given the sequence of optimal inputs
+        predicted_states_invariant = predicted_inputs_and_states_invariant[1]
+
+        # Obtain the A and B matrices that correspond to each predicted state
+        # of the vehicle. These are needed while iterating through the prediction
+        # equations in the optimization problem.
+        A = [A_0]
+        B = [B_0]
+
+        for i in range(0, len(predicted_states)):
+
+            # or maybe refs_psi[i]: linearize around the reference orientation
+            ab_list = get_model_matrices(predicted_state_invariants[i].value[2], v, ts)
+
+            A.append(ab_list[0])
+            B.append(ab_list[1])
+
+
+        # Solve the optimization problem with the list of time-variant A's and B's
+        optimum_inputs_and_states = solve_optimization_problem(3, 1, N, A, B, Q, R, s_0, s_ref)
+
+        # The final optimal inputs
+        optimum_input = optimum_inputs_and_states[0][0]
+
+        # The final predicted states
+        optimum_states = optimum_inputs_and_states[1]
+
+    # Linearize around the reference
+    elif linearize_around_state == False:
+
+        A = []
+        B = []
+        for i in range(0, len(refs_psi)):
+
+            # linearize around the reference orientation
+            ab_list = get_model_matrices(refs_psi[i], v, ts)
+
+            A.append(ab_list[0])
+            B.append(ab_list[1])
+
+
+        # The reference is now zero
+        s_ref = np.matrix([[0], [0], [0]])
+        for i in range(1, N+1):
+            s_ref = np.append(s_ref, s_ref, axis=1)
+
+        # Solve the optimization problem with the list of time-variant A's and B's
+        optimum_inputs_and_states = solve_optimization_problem(3, 1, N, A, B, Q, R, s_0, s_ref)
+
+        # The final optimal inputs
+        optimum_input = optimum_inputs_and_states[0][0]
+
+        # The final predicted states
+        optimum_states = optimum_inputs_and_states[1]
+
 
     if optimum_input is None:
         optimum_input = previous_input
-        rospy.loginfo('INVALID STEERING')
+        rospy.logwarn('INVALID STEERING')
 
     # MOCAP blind spot: when mocap loses the car, its steering goes to 0.0,
     # therefore, if this happens, keep momentarily the same steering angle.
@@ -358,11 +382,14 @@ def callback(data):
 
     plt.ion()
     plt.plot(x, y, '*')
-    #plt.plot(refs_x[0], refs_y[0], '.')
-    for i in range(0, len(predicted_states)):
-        plt.plot(predicted_states[i].value[0], predicted_states[i].value[1], '.')
 
-    plt.axis([-3,3,-3,3])
+    for i in range(0, len(refs_x)):
+        plt.plot(refs_x[i], refs_y[i], 'o')
+
+    for i in range(0, len(optimum_states)):
+        plt.plot(optimum_states[i].value[0], optimum_states[i].value[1], '.')
+        #plt.plot(optimum_states[i].value[0] + 4 * np.cos(optimum_states[i].value[2]), optimum_states[i].value[1] + 4 * np.sin(optimum_states[i].value[2]), 'd')
+
     plt.axis('equal')
 
     plt.draw()

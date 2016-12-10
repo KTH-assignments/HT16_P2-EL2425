@@ -97,8 +97,49 @@ def get_reference_points(state, ts, method):
     refs_psi = []
 
 
-    # Tangent method
-    if method == 1:
+    if method == 1 or method == 2:
+        # Tangent method
+        if method == 1:
+            # Find the point that connects the vehicle to the circle.
+            # This point is tangent to the circle, and this tangent passes through
+            # the position of the vehicle.
+            tan_point_list = get_tangent_point(state.x, state.y, circle_x_0, circle_y_0, circle_r)
+
+            point_x = tan_point_list[0]
+            point_y = tan_point_list[1]
+
+        # min method
+        elif method == 2:
+            point_x = state.x
+            point_y = state.y
+
+
+        # Find the closest point that lies ON the trajectory
+        for point in circle:
+            dist = np.sqrt((point_x - point[0])**2 + (point_y - point[1])**2)
+            if dist < min_dist:
+                min_dist = dist
+                ref_point = point
+
+
+        # Find the references on the circle.
+        for i in range(1,N+1):
+
+            if state.psi > 0 and ref_point[2] < 0:
+                ref_point[2] = ref_point[2] + 2*np.pi
+
+            t = ref_point[2] + state.v / circle_r * ts * i * H
+
+            x = circle_x_0 + circle_r * np.cos(t - np.pi/2)
+            y = circle_y_0 + circle_r * np.sin(t - np.pi/2)
+
+            refs_x.append(x)
+            refs_y.append(y)
+            refs_v.append(state.v)
+            refs_psi.append(t)
+
+    if method == 3:
+
         # Find the point that connects the vehicle to the circle.
         # This point is tangent to the circle, and this tangent passes through
         # the position of the vehicle.
@@ -106,36 +147,29 @@ def get_reference_points(state, ts, method):
 
         point_x = tan_point_list[0]
         point_y = tan_point_list[1]
-    # min method
-    elif method == 2:
-        point_x = state.x
-        point_y = state.y
 
-
-    # Find the closest point that lies ON the trajectory
-    for point in circle:
-        dist = np.sqrt((point_x - point[0])**2 + (point_y - point[1])**2)
-        if dist < min_dist:
-            min_dist = dist
-            ref_point = point
-
-
-    # Find the references on the circle.
-    # The initial point is excluded.
-    for i in range(0,N+1):
+        # Find the closest point that lies ON the trajectory
+        for point in circle:
+            dist = np.sqrt((point_x - point[0])**2 + (point_y - point[1])**2)
+            if dist < min_dist:
+                min_dist = dist
+                ref_point = point
 
         if state.psi > 0 and ref_point[2] < 0:
             ref_point[2] = ref_point[2] + 2*np.pi
 
-        t = ref_point[2] + np.arctan(state.v / circle_r * ts * i * H)
+        dx = state.x - ref_point[0]
+        dy = state.y - ref_point[1]
+        dd = np.sqrt(dx**2 + dy**2)
 
-        x = circle_x_0 + circle_r * np.cos(t - np.pi/2)
-        y = circle_y_0 + circle_r * np.sin(t - np.pi/2)
+        for i in range(1,N+1):
+            x = state.x + i * dd / N * np.cos(ref_point[2])
+            y = state.y + i * dd / N * np.sin(ref_point[2])
 
-        refs_x.append(x)
-        refs_y.append(y)
-        refs_v.append(state.v)
-        refs_psi.append(t)
+            refs_x.append(x)
+            refs_y.append(y)
+            refs_v.append(state.v)
+            refs_psi.append(ref_point[2])
 
 
 
@@ -177,8 +211,8 @@ def callback(state):
 
     msg.x = state.x
     msg.y = state.y
-    msg.psi = np.radians(state.yaw)
     msg.v = vel
+    msg.psi = np.radians(state.yaw)
 
     # The method for finding the point which the references
     # will be built upon.
