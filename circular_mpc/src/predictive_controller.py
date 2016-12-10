@@ -50,12 +50,9 @@ linearize_around_state = False
 #-------------------------------------------------------------------------------
 def get_model_matrices(psi, v, ts):
 
-
     beta = np.arctan(l_q * np.tan(previous_input))
 
     p = l_q / (l_q**2 * np.sin(previous_input)**2 + np.cos(previous_input)**2)
-
-    matrices = []
 
     # A
     A_11 = 1
@@ -79,6 +76,7 @@ def get_model_matrices(psi, v, ts):
 
     B = np.matrix([[B_11], [B_21], [B_31]])
 
+    matrices = []
     matrices.append(A)
     matrices.append(B)
 
@@ -107,7 +105,9 @@ def solve_optimization_problem_invariant(num_states, num_inputs, horizon, A, B, 
     for t in range(horizon):
         cost = quad_form(s[:,t] - s_ref[:,t], Q) + quad_form(u[t], R)
 
-        constr = [s[:,t+1] == A*s[:,t] + B*u[t]]
+        constr = [s[:,t+1] == A*s[:,t] + B*u[t],
+                u[t] >= -np.pi / 3,
+                u[t] <= np.pi / 3]
 
         states.append(Problem(Minimize(cost), constr))
 
@@ -160,7 +160,9 @@ def solve_optimization_problem(num_states, num_inputs, horizon, A, B, Q, R, s_0,
     for t in range(horizon):
         cost = quad_form(s[:,t] - s_ref[:,t], Q) + quad_form(u[t], R)
 
-        constr = [s[:,t+1] == A[t]*s[:,t] + B[t]*u[t]]
+        constr = [s[:,t+1] == A[t]*s[:,t] + B[t]*u[t],
+                u[t] >= -np.pi / 3,
+                u[t] <= np.pi / 3]
 
         states.append(Problem(Minimize(cost), constr))
 
@@ -305,10 +307,10 @@ def callback(data):
         A = [A_0]
         B = [B_0]
 
-        for i in range(0, len(predicted_states)):
+        for i in range(0, len(predicted_states_invariant)):
 
             # or maybe refs_psi[i]: linearize around the reference orientation
-            ab_list = get_model_matrices(predicted_state_invariants[i].value[2], v, ts)
+            ab_list = get_model_matrices(predicted_states_invariant[i].value[2], v, ts)
 
             A.append(ab_list[0])
             B.append(ab_list[1])
@@ -337,10 +339,20 @@ def callback(data):
             B.append(ab_list[1])
 
 
-        # The reference is now zero
-        s_ref = np.matrix([[0], [0], [0]])
-        for i in range(1, N+1):
-            s_ref = np.append(s_ref, s_ref, axis=1)
+#        # The reference is now zero
+        #s_ref = np.matrix([[0], [0], [0]])
+        #for i in range(1, N+1):
+            #s_ref = np.append(s_ref, s_ref, axis=1)
+
+        # References. Consider the refs_XXX lists as columns and append them
+        # in the appropriate order
+        refs_x_matrix = np.matrix(refs_x)
+        refs_y_matrix = np.matrix(refs_y)
+        refs_psi_matrix = np.matrix(refs_psi)
+
+        s_ref = np.matrix(refs_x_matrix)
+        s_ref = np.append(s_ref, refs_y_matrix, axis=0)
+        s_ref = np.append(s_ref, refs_psi_matrix, axis=0)
 
         # Solve the optimization problem with the list of time-variant A's and B's
         optimum_inputs_and_states = solve_optimization_problem(3, 1, N, A, B, Q, R, s_0, s_ref)
@@ -380,21 +392,21 @@ def callback(data):
 
     # Plot trajectory, references, predicted states
 
-    plt.ion()
-    plt.plot(x, y, '*')
+#    plt.ion()
+    #plt.plot(x, y, '*')
 
-    for i in range(0, len(refs_x)):
-        plt.plot(refs_x[i], refs_y[i], 'o')
+    #for i in range(0, len(refs_x)):
+        #plt.plot(refs_x[i], refs_y[i], 'o')
 
-    for i in range(0, len(optimum_states)):
-        plt.plot(optimum_states[i].value[0], optimum_states[i].value[1], '.')
-        #plt.plot(optimum_states[i].value[0] + 4 * np.cos(optimum_states[i].value[2]), optimum_states[i].value[1] + 4 * np.sin(optimum_states[i].value[2]), 'd')
+    #for i in range(0, len(optimum_states)):
+        #plt.plot(optimum_states[i].value[0], optimum_states[i].value[1], '.')
+        ##plt.plot(optimum_states[i].value[0] + 4 * np.cos(optimum_states[i].value[2]), optimum_states[i].value[1] + 4 * np.sin(optimum_states[i].value[2]), 'd')
 
-    plt.axis('equal')
+    #plt.axis('equal')
 
-    plt.draw()
+    #plt.draw()
 
-    plt.pause(0.0001)
+    #plt.pause(0.0001)
 
 
 
