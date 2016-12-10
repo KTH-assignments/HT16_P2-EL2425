@@ -40,7 +40,7 @@ timestamp_last_message = None
 
 # The horizon. Make sure that this number is larger than the horizon
 # in the predictive controller script
-N = 2
+N = 20
 
 
 #-------------------------------------------------------------------------------

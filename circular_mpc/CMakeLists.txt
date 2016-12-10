@@ -17,8 +17,8 @@ find_package(catkin REQUIRED COMPONENTS
 )
 
 generate_dynamic_reconfigure_options(
-  cfg/config.cfg
-  cfg/configFinder.cfg
+  cfg/dist_finder_mocap.cfg
+  cfg/predictive_controller.cfg
 )
 
 ## System dependencies are found with CMake's conventions

@@ -132,19 +132,9 @@ def solve_optimization_problem_invariant(num_states, num_inputs, horizon, A, B, 
 
     prob.solve(solver=CVXOPT)
 
-    # Return the sequence of optimal inputs and according predicted states.
     ret_list = []
-    list_u = []
-    list_s = []
     for i in range(0, horizon):
-        list_u.append(u[i].value)
-        list_s.append(s[:,i])
-
-    list_s.append(s[:,horizon])
-
-    ret_list.append(list_u)
-    ret_list.append(list_s)
-
+        ret_list.append(u[i].value)
 
     return ret_list
 
@@ -163,6 +153,7 @@ def solve_optimization_problem(num_states, num_inputs, horizon, A, B, Q, R, s_0,
         cost = quad_form(s[:,t] - s_ref[:,t], Q) + quad_form(u[t], R)
 
         constr = [s[:,t+1] == A[t]*s[:,t] + B[t]*u[t],
+                s[0,t+1]*sin(s[2,t+1])==s[1,t+1]*cos(s[2,t+1])
                 u[t] >= -np.pi / 3,
                 u[t] <= np.pi / 3]
 
@@ -213,7 +204,6 @@ def get_predicted_states(x_0, y_0, psi_0, A, B, inputs):
     ret_list.append(psi[1:len(psi)])
 
     return ret_list
-
 
 
 #-------------------------------------------------------------------------------
@@ -283,7 +273,7 @@ def callback(data):
     #R = np.matrix([[500]])
 
 
-    Q = np.matrix([[Q_xy, 0, 0], [0, Q_xy, 0], [0, 0, Q_psi]])
+    Q = np.matrix([[Q_x, 0, 0], [0, Q_y, 0], [0, 0, Q_psi]])
 
     R = np.matrix([[R_delta]])
 
@@ -303,12 +293,10 @@ def callback(data):
 
     # Solve the optimization problem once, to obtain the predicted inputs.
     # These will give us access to the predicted states.
-    predicted_inputs_and_states = solve_optimization_problem_invariant(3, 1, N, A_0, B_0, Q, R, s_0, s_ref)
-
-    predicted_inputs = predicted_inputs_and_states[0]
+    predicted_inputs = solve_optimization_problem_invariant(3, 1, N, A_0, B_0, Q, R, s_0, s_ref)
 
     # Obtain the predicted states, given the sequence of predicted optimal inputs
-    predicted_states = predicted_inputs_and_states[1]
+    predicted_states = get_predicted_states(x, y, psi, A_0, B_0, predicted_inputs)
 
     # Obtain the A and B matrices that correspond to each predicted state
     # of the vehicle. These are needed while iterating through the prediction
@@ -316,10 +304,10 @@ def callback(data):
     A = [A_0]
     B = [B_0]
 
-    for i in range(0, len(predicted_states)):
+    for i in range(0, len(predicted_inputs)):
 
         # or maybe refs_psi[i]: linearize around the reference orientation
-        ab_list = get_model_matrices(predicted_states[i].value[2], v, ts)
+        ab_list = get_model_matrices(predicted_states[2][i], v, ts)
 
         A.append(ab_list[0])
         B.append(ab_list[1])
@@ -356,18 +344,18 @@ def callback(data):
 
     # Plot trajectory, references, predicted states
 
-    plt.ion()
-    plt.plot(x, y, '*')
-    #plt.plot(refs_x[0], refs_y[0], '.')
-    for i in range(0, len(predicted_states)):
-        plt.plot(predicted_states[i].value[0], predicted_states[i].value[1], '.')
+#    plt.ion()
+    #plt.plot(x, y, '*')
+    ##plt.plot(refs_x[0], refs_y[0], '.')
+    #for i in range(0, len(predicted_states[0])):
+        #plt.plot(predicted_states[0][i], predicted_states[1][i], '.')
 
-    plt.axis([-3,3,-3,3])
-    plt.axis('equal')
+    #plt.axis([-3,3,-3,3])
+    #plt.axis('equal')
 
-    plt.draw()
+    #plt.draw()
 
-    plt.pause(0.0001)
+    #plt.pause(0.0001)
 
 
 
@@ -376,11 +364,12 @@ def callback(data):
 #-------------------------------------------------------------------------------
 def dynamic_reconfigure_callback(config, level):
 
-    global N, Q_xy, Q_v, Q_psi, R_v, R_delta
+    global N, Q_x, Q_y, Q_v, Q_psi, R_v, R_delta
 
     N = config.N
 
-    Q_xy = config.Q_xy
+    Q_x = config.Q_x
+    Q_y = config.Q_y
     Q_v = config.Q_v
     Q_psi = config.Q_psi
 
