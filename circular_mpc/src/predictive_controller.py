@@ -36,14 +36,23 @@ l_q = l_r / (l_r + l_f)
 # the velocity's time constant
 tau = 1.0122
 
-previous_input = 0
+# Given that t is now, this is the input given at t-1
+previous_input = 0.0
 
 # The timestamp of the last message received. Will be needed in calculating
 # the execution time, that is, the time between two consecutive
 # callbacks
 timestamp_last_message = None
 
-linearize_around_state = False
+# Linearize around state or reference?
+linearize_around_state = True
+
+# Plot trajectory, references etc.
+plot = False
+
+# Show debut information
+debug = False
+
 
 #-------------------------------------------------------------------------------
 # Extracts the A, B matrices of a reduced order kinematic model
@@ -215,7 +224,9 @@ def callback(data):
     else:
         exec_time =  rospy.Time.now() - timestamp_last_message
         exec_time = exec_time.to_sec()
-        rospy.loginfo('Execution time = ' + str(exec_time) + ' sec')
+
+        if debug:
+            rospy.loginfo('Execution time = ' + str(exec_time) + ' sec')
 
     timestamp_last_message = rospy.Time.now()
 
@@ -233,36 +244,30 @@ def callback(data):
 
     ts = data.ts
 
-    rospy.loginfo('--')
-    rospy.loginfo('s_0(x): ' + str(x))
-    rospy.loginfo('s_ref(x): ' + str(refs_x[0]))
-    rospy.loginfo('--')
-    rospy.loginfo('s_0(y): ' + str(y))
-    rospy.loginfo('s_ref(y): ' + str(refs_y[0]))
-    rospy.loginfo('--')
-    rospy.loginfo('s_0(psi): ' + str(psi * 180 / np.pi))
-    rospy.loginfo('s_ref(psi): ' + str(refs_psi[0] * 180 / np.pi))
-    rospy.loginfo('--')
-    rospy.loginfo('s_0(v): ' + str(refs_v[0]))
-    rospy.loginfo('--')
-    rospy.loginfo('ts: ' + str(ts))
-    rospy.loginfo('--')
+    if debug:
+        rospy.loginfo('--')
+        rospy.loginfo('s_0(x): ' + str(x))
+        rospy.loginfo('s_ref(x): ' + str(refs_x[0]))
+        rospy.loginfo('--')
+        rospy.loginfo('s_0(y): ' + str(y))
+        rospy.loginfo('s_ref(y): ' + str(refs_y[0]))
+        rospy.loginfo('--')
+        rospy.loginfo('s_0(psi): ' + str(psi * 180 / np.pi))
+        rospy.loginfo('s_ref(psi): ' + str(refs_psi[0] * 180 / np.pi))
+        rospy.loginfo('--')
+        rospy.loginfo('s_0(v): ' + str(refs_v[0]))
+        rospy.loginfo('--')
+        rospy.loginfo('ts: ' + str(ts))
+        rospy.loginfo('--')
 
 
-    rospy.loginfo('-- REFERENCES --')
-    rospy.loginfo(str(refs_x))
-    rospy.loginfo(str(refs_y))
-    rospy.loginfo(str(refs_psi))
+        rospy.loginfo('-- REFERENCES --')
+        rospy.loginfo(str(refs_x))
+        rospy.loginfo(str(refs_y))
+        rospy.loginfo(str(refs_psi))
+
 
     # Penalty matrices
-    #Q = np.matrix([[100, 0, 0], [0, 100, 0], [0, 0, 150]])
-    #R = np.matrix([[400]])
-
-    # Defaults
-    #Q = np.matrix([[100, 0, 0], [0, 100, 0], [0, 0, 150]])
-    #R = np.matrix([[500]])
-
-
     Q = np.matrix([[Q_xy, 0, 0], [0, Q_xy, 0], [0, 0, Q_psi]])
 
     R = np.matrix([[R_delta]])
@@ -364,17 +369,13 @@ def callback(data):
         optimum_states = optimum_inputs_and_states[1]
 
 
-    if optimum_input is None:
-        optimum_input = previous_input
-        rospy.logwarn('INVALID STEERING')
-
     # MOCAP blind spot: when mocap loses the car, its steering goes to 0.0,
     # therefore, if this happens, keep momentarily the same steering angle.
     # In practice this makes the difference between a circular and an
     # elliptic trajectory
-    if optimum_input == 0.0:
+    if optimum_input is None or optimum_input == 0.0:
         optimum_input = previous_input
-
+        rospy.logwarn('INVALID STEERING')
 
 
     # Pack the message to be sent to the serial_transmitter node
@@ -383,30 +384,29 @@ def callback(data):
     msg.angle = optimum_input
     pub.publish(msg)
 
-    rospy.loginfo('-------------')
-    rospy.loginfo('opt angle: ' + str(np.degrees(optimum_input)))
+    if debug:
+        rospy.loginfo('-------------')
+        rospy.loginfo('opt angle: ' + str(np.degrees(optimum_input)))
 
     # Store the input for the next timestep (needed in calculation of beta)
     previous_input = optimum_input
 
 
     # Plot trajectory, references, predicted states
+    if plot:
+        plt.ion()
+        plt.plot(x, y, '*')
 
-#    plt.ion()
-    #plt.plot(x, y, '*')
+        for i in range(0, len(refs_x)):
+            plt.plot(refs_x[i], refs_y[i], 'o')
 
-    #for i in range(0, len(refs_x)):
-        #plt.plot(refs_x[i], refs_y[i], 'o')
+        for i in range(0, len(optimum_states)):
+            plt.plot(optimum_states[i].value[0], optimum_states[i].value[1], '.')
+            #plt.plot(optimum_states[i].value[0] + 4 * np.cos(optimum_states[i].value[2]), optimum_states[i].value[1] + 4 * np.sin(optimum_states[i].value[2]), 'd')
 
-    #for i in range(0, len(optimum_states)):
-        #plt.plot(optimum_states[i].value[0], optimum_states[i].value[1], '.')
-        ##plt.plot(optimum_states[i].value[0] + 4 * np.cos(optimum_states[i].value[2]), optimum_states[i].value[1] + 4 * np.sin(optimum_states[i].value[2]), 'd')
-
-    #plt.axis('equal')
-
-    #plt.draw()
-
-    #plt.pause(0.0001)
+        plt.axis('equal')
+        plt.draw()
+        plt.pause(0.0001)
 
 
 

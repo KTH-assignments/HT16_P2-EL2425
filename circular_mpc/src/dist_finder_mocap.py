@@ -123,7 +123,7 @@ def get_reference_points(state, ts, method):
 
 
         # Find the references on the circle.
-        for i in range(1,N+1):
+        for i in range(0,N+1):
 
             if state.psi > 0 and ref_point[2] < 0:
                 ref_point[2] = ref_point[2] + 2*np.pi
@@ -162,7 +162,7 @@ def get_reference_points(state, ts, method):
         dy = state.y - ref_point[1]
         dd = np.sqrt(dx**2 + dy**2)
 
-        for i in range(1,N+1):
+        for i in range(0,N+1):
             x = state.x + i * dd / N * np.cos(ref_point[2])
             y = state.y + i * dd / N * np.sin(ref_point[2])
 
