@@ -112,7 +112,7 @@ def solve_optimization_problem_invariant(num_states, num_inputs, horizon, A, B, 
 
     states = []
     for t in range(horizon):
-        cost = quad_form(s[:,t] - s_ref[:,t], Q) + quad_form(u[t], R)
+        cost = quad_form(s[:,t] - s_ref[:,t], Q[t]) + quad_form(u[t], R)
 
         constr = [s[:,t+1] == A*s[:,t] + B*u[t],
                 u[t] >= -np.pi / 3,
@@ -167,7 +167,7 @@ def solve_optimization_problem(num_states, num_inputs, horizon, A, B, Q, R, s_0,
 
     states = []
     for t in range(horizon):
-        cost = quad_form(s[:,t] - s_ref[:,t], Q) + quad_form(u[t], R)
+        cost = quad_form(s[:,t] - s_ref[:,t], Q[t]) + quad_form(u[t], R)
 
         constr = [s[:,t+1] == A[t]*s[:,t] + B[t]*u[t],
                 u[t] >= -np.pi / 3,
@@ -272,6 +272,11 @@ def callback(data):
 
     R = np.matrix([[R_delta]])
 
+    # Variable Q penalty sequence
+    QQ = [Q]
+    for i in range(1,N):
+        QQ.append(q_discount * QQ[i-1])
+
     # Initial conditions
     s_0 = np.matrix([[x], [y], [psi]])
 
@@ -298,7 +303,7 @@ def callback(data):
 
         # Solve the optimization problem once, to obtain the predicted inputs.
         # These will give us access to the predicted states.
-        predicted_inputs_and_states_invariant = solve_optimization_problem_invariant(3, 1, N, A_0, B_0, Q, R, s_0, s_ref)
+        predicted_inputs_and_states_invariant = solve_optimization_problem_invariant(3, 1, N, A_0, B_0, QQ, R, s_0, s_ref)
 
         # Obtain the sequence of optimal inputs
         predicted_inputs_invariant = predicted_inputs_and_states_invariant[0]
@@ -322,7 +327,7 @@ def callback(data):
 
 
         # Solve the optimization problem with the list of time-variant A's and B's
-        optimum_inputs_and_states = solve_optimization_problem(3, 1, N, A, B, Q, R, s_0, s_ref)
+        optimum_inputs_and_states = solve_optimization_problem(3, 1, N, A, B, QQ, R, s_0, s_ref)
 
         # The final optimal inputs
         optimum_input = optimum_inputs_and_states[0][0]
@@ -415,13 +420,14 @@ def callback(data):
 #-------------------------------------------------------------------------------
 def dynamic_reconfigure_callback(config, level):
 
-    global N, Q_xy, Q_v, Q_psi, R_v, R_delta
+    global N, Q_xy, Q_v, Q_psi, q_discount, R_v, R_delta
 
     N = config.N
 
     Q_xy = config.Q_xy
     Q_v = config.Q_v
     Q_psi = config.Q_psi
+    q_discount = config.q_discount
 
     R_v = config.R_v
     R_delta = config.R_delta
