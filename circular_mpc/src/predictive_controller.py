@@ -51,17 +51,17 @@ linearize_around_state = True
 plot = False
 
 # Show debut information
-debug = False
+debug = True
 
 
 #-------------------------------------------------------------------------------
 # Extracts the A, B matrices of a reduced order kinematic model
 #-------------------------------------------------------------------------------
-def get_model_matrices(psi, v, ts):
+def get_model_matrices(psi, u, v, ts):
 
-    beta = np.arctan(l_q * np.tan(previous_input))
+    beta = np.arctan(l_q * np.tan(u))
 
-    p = l_q / (l_q**2 * np.sin(previous_input)**2 + np.cos(previous_input)**2)
+    p = l_q / (l_q**2 * np.sin(u)**2 + np.cos(u)**2)
 
     # A
     A_11 = 1
@@ -245,7 +245,7 @@ def callback(data):
     ts = data.ts
 
     if debug:
-        rospy.loginfo('--')
+        rospy.loginfo('==========================================')
         rospy.loginfo('s_0(x): ' + str(x))
         rospy.loginfo('s_ref(x): ' + str(refs_x[0]))
         rospy.loginfo('--')
@@ -261,10 +261,10 @@ def callback(data):
         rospy.loginfo('--')
 
 
-        rospy.loginfo('-- REFERENCES --')
-        rospy.loginfo(str(refs_x))
-        rospy.loginfo(str(refs_y))
-        rospy.loginfo(str(refs_psi))
+        #rospy.loginfo('-- REFERENCES --')
+        #rospy.loginfo(str(refs_x))
+        #rospy.loginfo(str(refs_y))
+        #rospy.loginfo(str(refs_psi))
 
 
     # Penalty matrices
@@ -295,7 +295,7 @@ def callback(data):
 
         # The model's matrices linearized around the current orientation
         # of the vehicle
-        matrices = get_model_matrices(psi, v, ts)
+        matrices = get_model_matrices(psi, previous_input, v, ts)
 
         A_0 = matrices[0]
         B_0 = matrices[1]
@@ -317,10 +317,10 @@ def callback(data):
         A = [A_0]
         B = [B_0]
 
-        for i in range(0, len(predicted_states_invariant)):
+        for i in range(1, len(predicted_states_invariant)):
 
             # or maybe refs_psi[i]: linearize around the reference orientation
-            ab_list = get_model_matrices(predicted_states_invariant[i].value[2], v, ts)
+            ab_list = get_model_matrices(predicted_states_invariant[i].value[2], predicted_inputs_invariant[i-1], v, ts)
 
             A.append(ab_list[0])
             B.append(ab_list[1])
@@ -343,7 +343,7 @@ def callback(data):
         for i in range(0, len(refs_psi)):
 
             # linearize around the reference orientation
-            ab_list = get_model_matrices(refs_psi[i], v, ts)
+            ab_list = get_model_matrices(refs_psi[i], previous_input, v, ts)
 
             A.append(ab_list[0])
             B.append(ab_list[1])
@@ -365,7 +365,7 @@ def callback(data):
         s_ref = np.append(s_ref, refs_psi_matrix, axis=0)
 
         # Solve the optimization problem with the list of time-variant A's and B's
-        optimum_inputs_and_states = solve_optimization_problem(3, 1, N, A, B, Q, R, s_0, s_ref)
+        optimum_inputs_and_states = solve_optimization_problem(3, 1, N, A, B, QQ, R, s_0, s_ref)
 
         # The final optimal inputs
         optimum_input = optimum_inputs_and_states[0][0]
@@ -390,7 +390,7 @@ def callback(data):
     pub.publish(msg)
 
     if debug:
-        rospy.loginfo('-------------')
+        rospy.loginfo('--')
         rospy.loginfo('opt angle: ' + str(np.degrees(optimum_input)))
 
     # Store the input for the next timestep (needed in calculation of beta)
