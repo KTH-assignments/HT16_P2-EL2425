@@ -121,17 +121,30 @@ def get_reference_points(state, ts, method):
                 min_dist = dist
                 ref_point = point
 
+        # The index of the tangent point in the circle list.
+        # Based on this, the index of the next references will be calculated.
+        tan_index = circle.index(ref_point)
 
         # Find the references on the circle.
-        for i in range(0,N+1):
+        for i in range(1,N+1):
 
-            if state.psi > 0 and ref_point[2] < 0:
-                ref_point[2] = ref_point[2] + 2*np.pi
+            # The index of the i-th reference in the circle list
+            t = tan_index + np.degrees(state.v / circle_r * ts * i * H)
 
-            t = ref_point[2] + state.v / circle_r * ts * i * H
+            while t > 359:
+                t = t - 360
 
-            x = circle_x_0 + circle_r * np.cos(t - np.pi/2)
-            y = circle_y_0 + circle_r * np.sin(t - np.pi/2)
+            t = int(np.ceil(t))
+
+            # The actual i-th reference point
+            ith_ref_point = circle[t]
+
+            x = ith_ref_point[0]
+            y = ith_ref_point[1]
+            t = ith_ref_point[2]
+
+            while state.psi > 0 and t < 0:
+                t = t + 2*np.pi
 
             refs_x.append(x)
             refs_y.append(y)
