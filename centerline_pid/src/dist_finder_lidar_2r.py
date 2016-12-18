@@ -166,7 +166,7 @@ def callback(data):
         phi += 2*np.pi
 
 
-    CCp = 3
+    CCp = 4
     tan_arg = float(L-R) / ((2 * CCp))
 
     # Check for angular overflow
